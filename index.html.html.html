@@ -87,10 +87,11 @@ body::after {
 
 
 .container {
-    /* UPDATED: Set fixed width and height for a consistent game frame */
-    width: 700px; 
-    height: 600px; 
+    /* MODIFIED: Setting width and height to 80vh for a square look */
+    width: 80vh; 
+    height: 80vh; 
     max-width: 95%; /* Keep max-width for smaller screens */
+    max-height: 95vh; /* Ensure it doesn't get clipped on short screens */
     
     box-sizing: border-box;
     overflow-y: auto; /* Allows content to scroll within the fixed height */
@@ -144,8 +145,8 @@ body::after {
 /* --- Start Menu & Animation Styles --- */
 #start-screen {
     text-align: center;
-    /* UPDATED: Increased vertical padding for better spacing in the 600px container */
-    padding: 80px 40px; 
+    /* MODIFIED: Adjusted padding to center content in the new square container */
+    padding: 10vh 40px; 
 }
 
         #start-title {
@@ -332,11 +333,11 @@ body::after {
         }
 
 @media (max-width: 768px) {
-    /* Container size reverts to a percentage on small screens for responsiveness */
+    /* MODIFIED: Use 90vw for both width and height to maintain a square on mobile */
     .container {
-        width: 95%; /* Use 95% of screen width */
-        height: 90vh; /* Use 90% of screen height */
-        max-width: none; /* Override fixed 700px width */
+        width: 90vw; 
+        height: 90vw; 
+        max-width: none; 
     }
     /* NEW: Use 90% width on smaller screens */
     #endings-sidebar {
@@ -1110,7 +1111,7 @@ window.populateEndingsList = function() {
             } catch(e) { /* ignore, will retry on click */ }
         }
 
-        // MODIFIED FUNCTION: Handles the full 2.0s screen fade-out and the new fade-in for the main menu.
+        // MODIFIED FUNCTION: Manages the in-game transition fade-out and content swap.
         function handleInGameTransition(nextNode) {
             
             // If transitioning back to the title screen from an ending/death
@@ -1125,7 +1126,7 @@ window.populateEndingsList = function() {
                     gameScreenEl.classList.remove('fade-out');
                     
                     // 2. Switch to the start screen, which now handles its own fade-in via showScreen('start')
-                    showStoryNode(nextNode, true); 
+                    showStoryNode(nextNode); 
                 }, 2000); // Wait for the full 2.0s fade
 
                 return;
@@ -1137,8 +1138,8 @@ window.populateEndingsList = function() {
 
             // 2. Wait for the content fade-out duration (1.5s)
             setTimeout(() => {
-                // 3. Update the content, telling showStoryNode this is a transition (not initial load)
-                showStoryNode(nextNode, false); 
+                // 3. Update the content
+                showStoryNode(nextNode); 
             }, STORY_TRANSITION_DURATION_MS);
         }
 
@@ -1147,6 +1148,14 @@ window.populateEndingsList = function() {
             calculateTotalEndings(); 
             gameState = {};
             
+            // FIX START (BUG FIX): Immediately clear game over status, content, and force opacity to 0 
+            gameContainerEl.classList.remove('game-over');
+            storyTextEl.innerHTML = ''; 
+            choicesEl.innerHTML = '';
+            storyTextEl.style.opacity = '0';
+            choicesEl.style.opacity = '0';
+            // FIX END (BUG FIX)
+
             // Start screen fades out over 2.0s
             startScreenEl.classList.add('fade-out');
             
@@ -1167,15 +1176,15 @@ window.populateEndingsList = function() {
                 // B. After the game screen is fully visible (2.0s), trigger the content fade (1.5s)
                 // This ensures the content is never instantly visible before the screen is ready.
                 setTimeout(() => {
-                    // Load and fade-in the content (using isInitialLoad=false to trigger the 1.5s fade)
-                    showStoryNode('start', false);
+                    // Load and fade-in the content 
+                    showStoryNode('start');
                 }, 2000); // Delay for the container fade (2.0s)
 
             }, 2000); // Delay for the start screen fade (2.0s)
         }
         
         // MODIFIED FUNCTION: Simplified content fade logic.
-        function showStoryNode(nodeName, isInitialLoad = false) {
+        function showStoryNode(nodeName) {
             if (nodeName === 'title_screen') {
                 showScreen('start');
                 return; 
@@ -1251,9 +1260,8 @@ window.populateEndingsList = function() {
             }
             
             // 3. Execute fade-in: Transition opacity from 0 to 1 (1.5s)
-            // The content is now set up. If it's not a title screen, it should fade in.
             
-            // A small delay to ensure the browser registers the opacity: 0 state (from CSS or transition)
+            // A small delay to ensure the browser registers the opacity: 0 state 
             // before transitioning to 1
             setTimeout(() => {
                 storyTextEl.style.opacity = '1';
