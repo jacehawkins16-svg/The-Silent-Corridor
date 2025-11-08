@@ -1,0 +1,1204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Silent Corridor: Expanded Edition</title>
+    <style>
+
+/* Global Styles & Atmosphere */
+body {
+    /* 1. AMBIENT BACKGROUND: Dark Red/Black (The background 'revealed' by the flashlight) */
+    background-color: #110000; 
+    color: #aaa; 
+    font-family: 'Courier New', Courier, monospace;
+    display: flex;
+    justify-content: center;
+    align-items: center; 
+    height: 100vh;
+    width: 100vw; 
+    margin: 0;
+    padding: 0; 
+    overflow: hidden; 
+    
+    position: relative;
+    z-index: 0; /* Ensures content is above the base body background */
+    
+    /* Flashlight Variables */
+    --x: 50vw; /* Mouse X position, updated by JS */
+    --y: 50vh; /* Mouse Y position, updated by JS */
+    --flashlight-size: 300px; 
+
+    /* Set a fixed dark background, NOT a gradient, to serve as the ambient color */
+    background: #110000; 
+    background-attachment: fixed;
+    transition: none !important; 
+}
+
+/* 2. body::before provides the WHITE/RED light color over the ambient background */
+body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 10; /* Below the content/shadow layers */
+    pointer-events: none; 
+    
+    /* THE LIGHT COLOR: Soft white center with red edge fading to transparent (reveals ambient body background) */
+    background: radial-gradient(
+        circle var(--flashlight-size) at var(--x) var(--y), 
+        rgba(255, 255, 255, 0.15) 0%,     /* Bright center */
+        rgba(255, 85, 85, 0.05) 50%,    /* Red glow */
+        transparent 100% 
+    );
+    background-blend-mode: overlay; /* Blending mode for a soft light effect */
+}
+
+/* 3. body::after is the BLACK SHADOW MASK with a transparent hole */
+body::after {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 12; /* Sits on top of the content and light source */
+    pointer-events: none;
+
+    background-color: #000; /* The shadow color */
+    opacity: 0.95; /* Control the overall darkness level */
+    
+    /* THE MASK: Creates a transparent hole in the shadow layer */
+    mask-image: radial-gradient(
+        circle var(--flashlight-size) at var(--x) var(--y),
+        transparent 0%, 
+        transparent 70%,
+        black 100% 
+    );
+    -webkit-mask-image: radial-gradient(
+        circle var(--flashlight-size) at var(--x) var(--y),
+        transparent 0%,
+        transparent 70%,
+        black 100%
+    );
+}
+
+
+.container {
+    max-width: 700px;
+    width: 95%; 
+    box-sizing: border-box;
+    
+    max-height: 100vh; 
+    overflow-y: auto;
+    overflow-x: hidden; 
+    
+    text-align: left;
+    line-height: 1.6;
+    animation: none !important; 
+    /* Restored a defined background color for the content box to sit on the ambient light */
+    background-color: rgba(17, 0, 0, 0.7); 
+    padding: 20px; 
+    border-radius: 5px;
+    /* Removed box shadow as it would be visible outside the light */
+    box-shadow: none; 
+    position: relative; 
+    transition: margin-left 0.5s; 
+    z-index: 11; /* Sits above the light source and below the shadow mask */
+}
+        h1 {
+            color: #f55; 
+            text-align: center;
+            border-bottom: 1px solid #f55; 
+            padding-bottom: 10px;
+            text-transform: uppercase;
+        }
+
+        /* --- Glitch Effect CSS (Randomized screen shake) --- */
+        .glitch-active {
+            animation: shake 0.1s infinite alternate;
+            filter: invert(10%) grayscale(80%) hue-rotate(330deg); 
+        }
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            100% { transform: translate(-1px, -1px) rotate(0.1deg); }
+        }
+
+        /* --- Screen Management --- */
+        .screen {
+            display: none;
+            width: 100%;
+            opacity: 1;
+            transition: opacity 2.0s ease-in-out; 
+        }
+        .screen.active {
+            display: block;
+        }
+        
+        .fade-out {
+            opacity: 0;
+        }
+
+/* --- Start Menu & Animation Styles --- */
+#start-screen {
+    text-align: center;
+    padding: 40px 20px; 
+}
+
+        #start-title {
+            font-size: 2.5em;
+            margin-bottom: 40px;
+            border-bottom: none; 
+            padding-bottom: 0;
+            animation-name: titleMove; 
+            animation-duration: 4s;
+            animation-timing-function: ease-in-out;
+            animation-iteration-count: infinite;
+            animation-direction: alternate;
+        }
+        @keyframes titleMove {
+            0% { transform: translateX(-10px) rotate(-1.5deg); }
+            50% { transform: translateX(10px) rotate(1.5deg); }
+            100% { transform: translateX(-10px) rotate(-1.5deg); }
+        }
+
+        #start-button, #endings-button {
+            max-width: 300px;
+            margin: 10px auto; 
+            font-size: 1.2em;
+            padding: 15px 30px;
+            border-color: #f55; 
+            width: auto !important; 
+        }
+
+        /* --- Game Screen Elements --- */
+        
+        #story-text {
+            margin-top: 20px;
+            font-size: 1em;
+            min-height: 200px; 
+        }
+        
+        #story-text h2 { 
+            text-align: center;
+            font-size: 1.5em;
+            color: #f55; 
+            margin-top: 20px;
+            border-bottom: none;
+            text-transform: none;
+        }
+        
+        #story-text p.description {
+            margin-bottom: 30px;
+            font-style: italic;
+        }
+        
+        /* Interaction Buttons */
+        .choice-btn {
+            background-color: transparent;
+            border: 1px solid #f55; 
+            color: #f55; 
+            padding: 10px 15px;
+            margin: 5px;
+            cursor: pointer;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9em;
+            transition: color 0.3s, background-color 0.3s, border-color 0.3s;
+            width: 100%;
+            box-sizing: border-box;
+            display: block;
+        }
+        .choice-btn:hover {
+            color: #fff; 
+            border-color: #fff; 
+            background-color: #220000; 
+        }
+        
+        /* Game Over State */
+        .game-over h1, .game-over .choice-btn {
+            color: #ff0000; 
+            border-color: #ff0000; 
+        }
+        .game-over .choice-btn:hover {
+            background-color: #330000; 
+        }
+        
+/* --- ENDINGS MENU SIDEBAR --- */
+#endings-sidebar {
+    height: 90vh; 
+    width: 300px; 
+    position: fixed;
+    z-index: 20; /* Highest Z-index */
+    top: 50%; 
+    right: 0;
+    background-color: rgba(17, 0, 0, 0.9); /* Dark, slightly red sidebar */
+    overflow-x: hidden;
+    transition: 0.5s;
+    padding-top: 20px; 
+    /* PUSH OFF-SCREEN and VERTICALLY CENTER */
+    transform: translateY(-50%) translateX(100%); 
+    box-shadow: -5px 0 15px rgba(255, 85, 85, 0.2); 
+    border-left: 1px solid #f55; 
+    display: flex;
+    flex-direction: column;
+}
+
+#endings-sidebar.open {
+    /* PULL BACK ON-SCREEN while maintaining vertical center */
+    transform: translateY(-50%) translateX(0); 
+}
+
+#endings-list-content {
+    padding: 0 15px 15px 15px;
+    overflow-y: auto;
+    flex-grow: 1; 
+}
+
+        #endings-sidebar h3 {
+            color: #f55; 
+            text-align: center;
+            margin-top: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #f55; 
+            text-transform: uppercase;
+            font-size: 1.2em;
+        }
+
+        .ending-item {
+            padding: 8px 0;
+            border-bottom: 1px dotted #444; 
+            color: #666; 
+            font-size: 0.9em;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start; 
+            line-height: 1.2;
+        }
+
+        .ending-item.unlocked {
+            color: #aaa; 
+            font-weight: bold;
+        }
+
+        .ending-item .status {
+            color: #ff0000; 
+            margin-left: 10px;
+            min-width: 10px; 
+        }
+        
+        .ending-item.unlocked .status {
+            color: #44ff44; 
+        }
+        
+        .ending-name {
+            flex-grow: 1; 
+        }
+        
+        .closebtn {
+            position: absolute;
+            top: 0;
+            right: 25px;
+            font-size: 36px;
+            margin-left: 50px;
+            cursor: pointer;
+            color: #f55; 
+            text-decoration: none;
+            line-height: 60px;
+        }
+
+        /* Adjustment to push main content when sidebar is open */
+        body.sidebar-open .container {
+            margin-right: 300px; 
+        }
+
+@media (max-width: 768px) {
+    .container {
+        padding: 10px;
+    }
+    /* NEW: Use 90% width on smaller screens */
+    #endings-sidebar {
+        width: 90%;
+    }
+    /* Adjust content spacing for smaller screens */
+    #story-text {
+        min-height: 150px; 
+    }
+}
+
+/* --- Custom Scrollbar Styling for Aesthetics --- */
+/* Targetting the element with isolated scrolling */
+#endings-list-content::-webkit-scrollbar {
+    width: 8px;
+    background-color: #111; 
+}
+
+#endings-list-content::-webkit-scrollbar-thumb {
+    background-color: #f55; 
+    border-radius: 4px;
+    border: 1px solid #330000; 
+}
+
+#endings-list-content::-webkit-scrollbar-thumb:hover {
+    background-color: #fff; 
+}
+    </style>
+</head>
+<body>
+    
+    <audio id="ambiance-sfx" loop preload="auto">
+        <source src="/ambiance sfx.mp3" type="audio/mp3">
+    </audio>
+    <audio id="rain-sfx" loop preload="auto">
+        <source src="/rain sfx.mp3" type="audio/mp3">
+    </audio>
+    
+    <div id="endings-sidebar">
+        <a href="javascript:void(0)" class="closebtn" onclick="toggleEndingsMenu()">&times;</a>
+        <h3>Endings Tracker</h3>
+        <div id="endings-list-content">
+            </div>
+    </div>
+    
+    <div class="container" id="gameContainer">
+        
+        <div id="start-screen" class="screen active">
+            <h1 id="start-title">The Silent Corridor</h1>
+            <button id="start-button" class="choice-btn">BEGIN</button>
+            <button id="endings-button" class="choice-btn" onclick="toggleEndingsMenu()">ENDINGS</button>
+        </div>
+
+        <div id="game-screen" class="screen">
+            <h1 id="game-title">The Silent Corridor</h1>
+            <div id="story-text">
+                </div>
+            <div id="choices">
+                </div>
+        </div>
+    </div>
+    <script>
+        // --- Game Logic and State Management ---
+        const storyTextEl = document.getElementById('story-text');
+        const choicesEl = document.getElementById('choices');
+        const gameContainerEl = document.getElementById('gameContainer');
+
+        const startScreenEl = document.getElementById('start-screen');
+        const gameScreenEl = document.getElementById('game-screen');
+        const startButtonEl = document.getElementById('start-button'); 
+
+        const sidebarEl = document.getElementById('endings-sidebar');
+        const listContentEl = document.getElementById('endings-list-content');
+        
+        // --- NEW AUDIO ELEMENTS ---
+        const ambianceSfx = document.getElementById('ambiance-sfx');
+        const rainSfx = document.getElementById('rain-sfx');
+        // --------------------------
+
+// Initialize the game state when the page loads
+document.addEventListener('DOMContentLoaded', () => {
+    // Check if any ending is unlocked to ensure the list is rendered on first view
+    renderEndingsList(); 
+    if (document.getElementById('start-screen').classList.contains('active')) {
+        document.body.classList.remove('game-over');
+    }
+});
+
+        let TOTAL_ENDINGS = 0; 
+        const STORAGE_KEY = 'silentCorridorEndings';
+        let gameState = {};
+        let glitchTimer = null; 
+
+        // CRITICAL CHANGE: Making storyNodes global so the console can read it
+window.storyNodes = {
+    start: {
+        text: "You wake up in a cold sweat. The digital clock on your nightstand flickers '3:07 AM'. A strange, crushing silence hangs in the air, a silence deeper than the usual quiet of the night. It feels like the sound has been pulled out of the world, leaving a vibrating vacuum in its place. You feel an intense, primal need to move, to check the unsettling quiet and confirm your sanity.",
+        choices: [
+            { text: "Hide under the covers.", nextNode: "go_back_to_bed" },
+            { text: "Venture into the corridor.", nextNode: "corridor_start" }, 
+            { text: "Go to the study to look for your phone.", nextNode: "investigate_study_1" }, 
+            { text: "Try the window ledge to escape the room.", nextNode: "bedroom_window_ledge_1" } // NEW Choice
+        ]
+    },
+    
+    // --- Bedroom Path ---
+    go_back_to_bed: {
+        text: "You burrow under the covers, trying to convince yourself it was just a dream. The blanket provides no comfort; the silence persists, chilling you more than the cold floor. You pull the blanket over your head, cutting off all light and sound. You can feel your heart pounding in your ears, the only sound left in the world.",
+        choices: [
+            { text: "Wait it out. Dawn has to come soon.", nextNode: "ending_safe" },
+            { text: "The darkness under the blanket is too much. Peek out.", nextNode: "peek_out" },
+            { text: "Accept the silence and wait for it.", nextNode: "go_back_to_bed_acceptance" } 
+        ]
+    },
+    peek_out: {
+        text: "You peek out from under the blanket. The room is the same, but the silence feels heavier, almost like pressure. Then you see it—a pair of pale, unblinking eyes reflecting the moonlight from the hallway, just outside your door frame. It is watching the crack.",
+        choices: [
+            { text: "Stare back and freeze.", nextNode: "death_staredown" },
+            { text: "Scream and run for the bathroom.", nextNode: "corridor_start" }, 
+            { text: "Slowly, quietly pull the door closed.", nextNode: "close_door" },
+            { text: "Open the door slightly and offer it something.", nextNode: "sacrifice_door_2" } 
+        ]
+    },
+    close_door: {
+        text: "The hinges squeak, a sound like a gunshot in the crushing silence. The eyes blink once, quickly. You manage to latch the door before they fully open again. You stand frozen, leaning against the wood, heart in your throat. You know it is still there.",
+        choices: [
+            { text: "Wait at the door until morning.", nextNode: "ending_witness" }, 
+            { text: "Try to open the window.", nextNode: "death_trapped" }
+        ]
+    },
+    
+    // --- Corridor Path ---
+    corridor_start: {
+        text: "You creep down the long, dark hall. The air is ice cold, and the temperature seems to drop with every step you take away from your room. Shadows seem to stretch and shift independently of the moonlight, lengthening and distorting familiar shapes. The corridor leads to the bathroom, the living room, the kitchen, the study, and a small back hall where the laundry room is located. You also spot your phone charger dangling from an outlet near a small table.",
+        choices: [
+            { text: "Check the bathroom.", nextNode: "investigate_bathroom_1" },
+            { text: "Go to the living room.", nextNode: "investigate_living_room_1" }, 
+            { text: "Go straight to the kitchen.", nextNode: "investigate_kitchen_1" },
+            { text: "Go to the study.", nextNode: "investigate_study_1" },
+            { text: "Check the laundry room down the back hall.", nextNode: "investigate_laundry_1" }, // NEW Choice
+            { text: "Plug your phone into the corridor charger.", nextNode: "corridor_charger_2" } // NEW Choice
+        ]
+    },
+
+    // --- Bathroom Path ---
+    investigate_bathroom_1: {
+        text: "The bathroom door is slightly ajar. A low, wet dripping sound breaks the silence—drip... drip... drip. It's the only sound you've heard that feels normal, yet it's unnervingly slow and rhythmic.",
+        choices: [
+            { text: "Push the door open slowly.", nextNode: "push_door" },
+            { text: "Call out a name.", nextNode: "call_out" },
+            { text: "Look under the sink, where the plumbing is.", nextNode: "bathroom_sink_2" }, // NEW Choice
+            { text: "Run back to your room.", nextNode: "death_tripped" }
+        ]
+    },
+    call_out: {
+        text: "You whisper, 'Hello? Is someone there?' The dripping stops abruptly. You wait. A faint, low scratching sound comes from behind the door, rhythmic and deliberate, like someone dragging a broken fingernail across cold tile.",
+        choices: [
+            { text: "Open the door now!", nextNode: "push_door" },
+            { text: "Listen closer to the scratching.", nextNode: "death_listened" }
+        ]
+    },
+    push_door: {
+        text: "You push the door open fully. There is nothing in the room but an old, dark bath towel hanging on the hook. The dripping was from the faucet. Relief washes over you, but the sense of dread doesn't completely leave. On the counter, you see a small, half-empty bottle of sleeping pills.",
+        choices: [
+            { text: "Take the sleeping pills and end the stress.", nextNode: "bathroom_medicine_2" },
+            { text: "Climb out the window onto the narrow roof.", nextNode: "bathroom_window_2" },
+            { text: "Look under the sink.", nextNode: "bathroom_sink_2" },
+            { text: "Go to the kitchen.", nextNode: "investigate_kitchen_1" }
+        ]
+    },
+    
+    // --- Kitchen Path ---
+    investigate_kitchen_1: {
+        text: "The kitchen is darker than the hall. The large window shows the yard outside. You notice a faint, sulfurous smell, like burnt matches. A cupboard door is slightly ajar, rattling gently in a nonexistent breeze. You see an old, dusty shortwave radio sitting on a high shelf.",
+        choices: [
+            { text: "Investigate the rattling cupboard.", nextNode: "kitchen_cupboard_2" },
+            { text: "Try to use the shortwave radio to find a voice.", nextNode: "kitchen_radio_2" }, 
+            { text: "Check the back door for a lock.", nextNode: "kitchen_back_door_2" },
+            { text: "Open the freezer, maybe find something to use as a weapon.", nextNode: "kitchen_freezer_3" }, // NEW Choice
+            { text: "Try to light the gas stove to create light and sound.", nextNode: "kitchen_stove_3" } // NEW Choice
+        ]
+    },
+    kitchen_cupboard_2: {
+        text: "You slowly open the cupboard. It's filled with mundane things: plates, mugs, glasses. As you reach inside, a single glass falls off the shelf and shatters on the floor. The sound is deafening. The rattling stops, replaced by an even deeper silence.",
+        choices: [
+            { text: "Freeze and listen for a reaction.", nextNode: "kitchen_freeze_3" },
+            { text: "Quickly grab a knife from the block.", nextNode: "kitchen_grab_knife_3" }
+        ]
+    },
+    kitchen_back_door_2: {
+        text: "The back door is locked, but the deadbolt is slightly loose. You hear a sound outside—a slow, dragging weight moving across the patio gravel. It stops right outside the door, the air around the wood paneling growing heavy and cold.",
+        choices: [
+            { text: "Run to the living room window to look outside.", nextNode: "ending_caught_window" },
+            { text: "Quietly brace the door with a chair.", nextNode: "ending_fortify" }
+        ]
+    },
+    kitchen_grab_knife_3: {
+        text: "You grip the cold handle of the largest knife. You feel ready to fight. As you turn around, you see a small, dark shape scurrying into the shadow of the stove. It's a large rat, momentarily visible before it vanishes. You are armed, but now you know the house is infested.",
+        choices: [
+            { text: "Kill the rat and feel a surge of primal dominance.", nextNode: "ending_hunter" },
+            { text: "Use the stove to make a distraction.", nextNode: "kitchen_stove_3" },
+            { text: "Drop the knife and go straight to the basement.", nextNode: "basement_check" }
+        ]
+    },
+    kitchen_freeze_3: {
+        text: "You stand perfectly still. The silence returns, but you feel a strange sense of presence growing near you, drawn by the crash of glass. A cold breath touches the back of your neck. You know you have been found.",
+        choices: [
+            { text: "Don't move.", nextNode: "death_paralyzed" }
+        ]
+    },
+    
+    // --- Living Room Path ---
+    investigate_living_room_1: {
+        text: "The living room is dominated by a large, dark television screen, reflecting the scene. The screen is cracked in one corner. There's a set of car keys resting on the coffee table. Nearby, a small bookshelf sits, crammed with dusty volumes.",
+        choices: [
+            { text: "Pick up the car keys.", nextNode: "living_room_keys_2" },
+            { text: "Look at your reflection in the cracked TV screen.", nextNode: "living_room_mirror_2" },
+            { text: "Examine the old, leather-bound books on the shelf.", nextNode: "living_room_bookshelf_2" },
+            { text: "Rip down the heavy blackout curtains to let in the moonlight.", nextNode: "living_room_curtains_3" } // NEW Choice
+        ]
+    },
+    living_room_keys_2: {
+        text: "The keys feel heavy and metallic in your hand. You have a chance to escape, but the front door is on the opposite side of the house, past the corridor. You also realize you could just run to the car.",
+        choices: [
+            { text: "Attempt a final dash to the front door.", nextNode: "ending_escape" },
+            { text: "Use the keys to open the locked closet near the TV.", nextNode: "living_room_closet_3" },
+            { text: "Run to the car parked in the driveway.", nextNode: "kitchen_leave_car" }
+        ]
+    },
+    living_room_mirror_2: {
+        text: "Your reflection looks normal, but the crack in the screen makes a shard of your reflected face look distorted, sneering. You notice a faint, looping message written in dust on the screen: 'IT IS ALREADY INSIDE'.",
+        choices: [
+            { text: "Wipe the message away.", nextNode: "death_written" },
+            { text: "Stare intensely at the distorted reflection.", nextNode: "living_room_stare_mirror" },
+            { text: "Back away slowly toward the corridor.", nextNode: "corridor_start" }
+        ]
+    },
+    living_room_closet_3: {
+        text: "The keys turn the lock with a heavy *thunk*. Inside is a hunting rifle, fully loaded, and a note: 'I couldn't do it. Maybe you can.' The realization that someone stored this here sends a fresh wave of panic through you.",
+        choices: [
+            { text: "Take the rifle and proceed to the basement.", nextNode: "basement_check_armed" },
+            { text: "Leave the rifle and hide in the closet.", nextNode: "ending_bunker" }
+        ]
+    },
+    
+    // --- Study Path ---
+    investigate_study_1: {
+        text: "The study is small and cluttered with books and old paper. The window is covered with heavy blackout curtains. A desk lamp is knocked over, the bulb faintly glowing. The air is stale, and the low hum you noticed earlier is slightly louder here.",
+        choices: [
+            { text: "Look under the overturned desk lamp.", nextNode: "study_lamp_2" },
+            { text: "Try to call for help using the disconnected desk phone.", nextNode: "study_phone_2" },
+            { text: "Rifle through the filing cabinet of old documents.", nextNode: "study_documents_2" },
+            { text: "Examine the old, wooden globe on the stand.", nextNode: "study_globe_2" } // NEW Choice
+        ]
+    },
+    study_lamp_2: {
+        text: "Under the lamp is a small, worn leather-bound journal. The pages are filled with frantic, tight handwriting, describing strange sounds and 'the closing silence.' The ink seems smeared as if written in tears or sweat.",
+        choices: [
+            { text: "Read the next page.", nextNode: "study_read_3" },
+            { text: "Drop the journal and flee to the corridor.", nextNode: "corridor_start" }
+        ]
+    },
+    study_phone_2: {
+        text: "You pick up the old rotary phone. It's dead, but as you press the numbers, a deep, rhythmic click sounds from the receiver. Then a dial tone begins, horribly distorted and low, like a machine trying to breathe.",
+        choices: [
+            { text: "Try to dial a number.", nextNode: "death_call" }
+        ]
+    },
+    study_read_3: {
+        text: "The final entry is simply: 'I let it in. The static is my reward. It is a terrible peace.' As you read the last word, the paper begins to crumble and turn to ash in your hands. You feel lighter, as if a great weight has been lifted from your mind, replaced by an empty certainty.",
+        choices: [
+            { text: "Find a way to burn the rest of the journal.", nextNode: "ending_fire" }
+        ]
+    },
+
+    // --- Basement Logic ---
+    basement_check: {
+        text: "The basement door is ajar, leading down to absolute darkness. The air smells of damp earth and mold. The low, constant hum is deafening here, vibrating in your bones. You notice a strange pattern etched into the floor near the steps, chalk lines forming a crude star.",
+        choices: [
+            { text: "Close and lock the door firmly.", nextNode: "ending_relief" }, 
+            { text: "Investigate the chalk star on the floor.", nextNode: "basement_ritual_2" }, 
+            { text: "Find the fuse box and try to restore power/light.", nextNode: "basement_fuse_2" }, // NEW Choice
+            { text: "Go down into the darkness.", nextNode: "death_descent" }
+        ]
+    },
+    basement_check_armed: {
+        text: "You stand before the basement door with the rifle. You feel a measure of confidence, but the humming below is still present, an unseen, massive force. You will confront it and end the silence.",
+        choices: [
+            { text: "Go down, rifle ready.", nextNode: "ending_confrontation" }, 
+            { text: "Shoot into the darkness first.", nextNode: "death_blind_shot" },
+            { text: "Set the rifle down and walk away from the threat.", nextNode: "ending_truce" } // NEW Ending Link
+        ]
+    },
+
+
+    // --- NEW PATHS (For Endings 21-30) ---
+
+    // NEW PATH: Laundry Room (Ending 21)
+    investigate_laundry_1: {
+        text: "The small room smells faintly of bleach and stale water. There is a washer and dryer, both old and bulky. The silence here is particularly sharp, amplified by the hard tile. On the floor, near the dryer vent, you notice a small patch of unnaturally white powder.",
+        choices: [
+            { text: "Investigate the white powder.", nextNode: "laundry_powder_2" },
+            { text: "Hide behind the washing machine.", nextNode: "laundry_hide_2" }
+        ]
+    },
+    laundry_powder_2: {
+        text: "It looks like fine salt or maybe ashes. As you touch it, the substance immediately absorbs the light in the room, becoming utterly black. You feel a strange sense of cleanliness and finality. Your hand feels cold, but peaceful.",
+        choices: [
+            { text: "Rub the powder onto your chest and face.", nextNode: "ending_cleanse" }
+        ]
+    },
+    laundry_hide_2: {
+        text: "You cram yourself behind the heavy, rumbling washing machine. The rumbling isn't the machine—it's the low, subsonic hum of the silence, vibrating through the metal. It's a terrible hiding spot; you're too exposed.",
+        choices: [
+            { text: "Try to force your way out the back door (via the laundry room).", nextNode: "death_trapped_laundry" }
+        ]
+    },
+
+    // NEW PATH: Bedroom Ledge (Ending 26)
+    bedroom_window_ledge_1: {
+        text: "You quietly open the window. The cold night air rushes in, carrying the scent of pine. The silence seems to dissipate slightly. You climb out onto the narrow ledge outside. It's slippery and dangerous, but better than being inside.",
+        choices: [
+            { text: "Try to crawl along the ledge to the neighbor's house.", nextNode: "ending_fall" },
+            { text: "Try to jump down to the soft earth below.", nextNode: "death_fall" }
+        ]
+    },
+
+    // NEW PATH: Corridor Charger (Ending 27)
+    corridor_charger_2: {
+        text: "You realize your phone charger cable is hanging from a wall outlet in the corridor, right next to a small table. You rush over, plug in your phone, and see that it has 1% battery. A single, fragile connection to the outside world.",
+        choices: [
+            { text: "Quickly dial 911.", nextNode: "death_charged_call" },
+            { text: "Send a brief, coded text message to a trusted friend.", nextNode: "ending_charged" }
+        ]
+    },
+
+    // NEW PATH: Under the Sink (Ending 25)
+    bathroom_sink_2: {
+        text: "You push aside the cleaning supplies under the sink. The back panel feels loose. You pull it away and find a narrow, dusty utility tunnel leading into the foundation. It's dark and smells foul, but it's an undeniable exit point.",
+        choices: [
+            { text: "Crawl through the dark tunnel.", nextNode: "ending_hidden_passage" }, // Linked to E25
+            { text: "It's too disgusting. Return to the corridor.", nextNode: "corridor_start" }
+        ]
+    },
+
+    // --- ENDINGS (IDs 1-30) ---
+
+    // Original Endings 1-10
+    ending_safe: {
+        text: "You manage to fall asleep just before dawn. You survive the night, but the silence haunts your dreams for weeks to come. Was any of it real? You can never be sure.",
+        endingTitle: "ENDING 1/30: Survival",
+        choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
+        isEnding: true,
+        endingId: 1
+    },
+    ending_relief: {
+        text: "You lock the door and lean against it until morning. It was just an old house playing tricks on your mind. You sleep soundly. You'll move out tomorrow, convinced the sound was merely your exhaustion.",
+        endingTitle: "ENDING 2/30: Relief",
+        choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
+        isEnding: true,
+        endingId: 2
+    },
+    ending_witness: { 
+        text: "You stay pressed against the door, motionless, for what feels like an eternity. As the first rays of morning light pierce the room, the sound outside vanishes. A deep scratch is scored into the floorboards right where the entity stood. You know what you saw, and you can never unknow it.",
+        endingTitle: "ENDING 3/30: The Witness",
+        choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
+        isEnding: true,
+        endingId: 3
+    },
+    ending_hunter: { 
+        text: "The rat is dead. A strange, powerful rush of adrenaline and savage calm takes over. You stand in the quiet kitchen, knife in hand, ready for the next threat, a predator in your own home. The feeling never leaves you. You were changed that night—you now crave the hunt.",
+        endingTitle: "ENDING 4/30: The Hunter",
+        choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
+        isEnding: true,
+        endingId: 4
+    },
+    ending_fortify: { 
+        text: "You successfully brace the back door. The dragging noise outside grows frantic, testing the barrier. You hear splintering wood, but the chair holds. You run for the bedroom and lock yourself in. You survive by a thread, but the silence of the rest of the house remains outside.",
+        endingTitle: "ENDING 5/30: Fortification",
+        choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
+        isEnding: true,
+        endingId: 5
+    },
+    ending_escape: { 
+        text: "You make a mad dash for the front door, keys jangling. You throw the door open and sprint into the street, not looking back. You find help at a neighbor's house. The house is condemned the next day, the cause 'structural instability.' You were the last thing it let leave.",
+        endingTitle: "ENDING 6/30: Flight",
+        choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
+        isEnding: true,
+        endingId: 6
+    },
+    ending_bunker: { 
+        text: "You lock the closet door from the inside and sit in absolute darkness, the sound of the house breathing around you. It's a small space, but it's soundproof. You stay hidden until the sounds stop. You emerge hours later into silence and daylight, forever scarred by the close confines.",
+        choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
+        endingTitle: "ENDING 7/30: The Bunker",
+        isEnding: true,
+        endingId: 7
+    },
+    ending_fire: { 
+        text: "You grab a lighter and drop the journal into the fireplace, watching the pages curl and burn. The fire is small but bright. It banishes the shadows. As the last embers fade, a loud, tortured shriek rings out from the floorboards. Whatever it was, it's gone now, and the house feels strangely neutral.",
+        endingTitle: "ENDING 8/30: Static Cleared",
+        choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
+        isEnding: true,
+        endingId: 8
+    },
+    ending_confrontation: { 
+        text: "You go down the stairs, rifle raised. The humming stops. You reach the floor. A shape materializes—a mass of eyes and limbs. You empty the rifle's magazine into the thing. It screams and dissolves into dust. You win, but the smell of burnt sulfur and blood is permanent in the house.",
+        endingTitle: "ENDING 9/30: The Victor",
+        choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
+        isEnding: true,
+        endingId: 9
+    },
+    ending_caught_window: { 
+        text: "You look out the living room window toward the back patio. Nothing is there. But the reflection of the glass shows the back door is now slightly ajar. You were tricked into abandoning your position, and now it's inside. You hear the slow, dragging sound coming up behind you.",
+        endingTitle: "ENDING 10/30: The Fool",
+        choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
+        isEnding: true,
+        endingId: 10
+    },
+
+    // Previous New Endings 11-20
+    sacrifice_door_2: {
+        text: "You realize the eyes outside aren't hostile, only *hungry*. You decide to offer it a part of yourself to satisfy it. You quickly grab your wristwatch—an old, cherished gift—and slide it under the door. A slow, rasping sound of metal scraping wood follows, and then, silence. A second later, you hear a faint *thud* from down the corridor as if something large has moved away.",
+        choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
+        endingTitle: "ENDING 11/30: The Exchange",
+        isEnding: true,
+        endingId: 11
+    },
+    bathroom_medicine_2: {
+        text: "You grab the pills and swallow them all, chasing the adrenaline and fear with a wave of chemical calm. You crawl into the bathtub, closing the curtain, hoping to sleep through the terror. The house grows quiet. You drift off, wondering if you'll ever wake up, or if this silence will be your last.",
+        choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
+        endingTitle: "ENDING 12/30: The Retreat",
+        isEnding: true,
+        endingId: 12
+    },
+    kitchen_radio_2: {
+        text: "You frantically tune the radio, past the static and the low, throbbing hum of the silence. Suddenly, a clear, desperate voice cuts through: '—don't look at the eyes—don't look at the eyes—they're outside—' The voice cuts off, replaced by a deafening, wet screech that blows out the radio's speaker. You know someone else saw it, too.",
+        choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
+        endingTitle: "ENDING 13/30: The Transmission",
+        isEnding: true,
+        endingId: 13
+    },
+    living_room_bookshelf_2: {
+        text: "You pull out a heavy book titled 'Rites of the Lesser Key.' The pages open to a diagram showing a specific pattern to draw on the floor to 'ward off non-corporeal invaders.' You spend the next hour frantically drawing the symbols in dust and spilled salt. The entity never approaches the living room again, but the symbols begin to faintly glow blue.",
+        choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
+        endingTitle: "ENDING 14/30: The Curator",
+        isEnding: true,
+        endingId: 14
+    },
+    study_documents_2: {
+        text: "You spend an hour reading through old property deeds, tax forms, and handwritten letters. They speak of strange phenomena that have afflicted the house's owners for generations. You realize this house isn't haunted; it is a long-term trap. The history overwhelms you, and you stop caring about escaping. You settle down, another data point in the house's long, silent story.",
+        choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
+        endingTitle: "ENDING 15/30: The Archivist",
+        isEnding: true,
+        endingId: 15
+    },
+    basement_ritual_2: {
+        text: "You step carefully into the chalk star. The humming immediately stops. The darkness deepens, but you feel safe, protected. A voice, clear and cold, speaks from the air: 'You have claimed sanctuary. You are mine now.' The house is silent, but you are its new anchor.",
+        choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
+        endingTitle: "ENDING 16/30: The Anchor",
+        isEnding: true,
+        endingId: 16
+    },
+    kitchen_leave_car: {
+        text: "You flee the house and rush to the car, fumbling with the keys until the engine catches. You drive away and never look back. Weeks later, you receive a single, unmarked envelope containing the house key you used to escape. The address on the envelope is your new apartment.",
+        choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
+        endingTitle: "ENDING 17/30: The Abandonment",
+        isEnding: true,
+        endingId: 17
+    },
+    living_room_stare_mirror: {
+        text: "You stare at the reflection, focusing on the sneering, distorted shard of your face. Slowly, the crack in the screen seems to deepen, not into the glass, but into your own eyes. You feel your grasp on reality slipping, and you laugh—a soundless, terrifying laugh. You have traded your sanity for the knowledge that you are one with the house now.",
+        choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
+        endingTitle: "ENDING 18/30: The Reflection",
+        isEnding: true,
+        endingId: 18
+    },
+    bathroom_window_2: {
+        text: "You slide open the window and squeeze out onto the narrow roofline above the porch. It's a precarious perch. You cling to the shingles, shivering, waiting for the sun. The silence of the house feels miles away, replaced by the wind. You survive the night, exhausted and terrified, but free of the interior.",
+        choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
+        endingTitle: "ENDING 19/30: The Escape Artist",
+        isEnding: true,
+        endingId: 19
+    },
+    go_back_to_bed_acceptance: {
+        text: "You close your eyes and stop fighting the fear. You wait, calmly and completely still. The silence envelops you. You feel a heavy weight settle on the edge of your bed, and a soundless sigh fills the room. You have accepted your fate, and now you are merely waiting for the dawn that may never come.",
+        choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
+        endingTitle: "ENDING 20/30: The Acceptance",
+        isEnding: true,
+        endingId: 20
+    },
+
+    // --- NEW ENDINGS (IDs 21-30) ---
+
+    ending_cleanse: { // From laundry_powder_2
+        text: "The black powder feels like a soothing balm, immediately quieting the panicked thoughts in your head. It absorbs the noise, the fear, and finally, all the light. You are left standing in the laundry room, perfectly silent, perfectly clean, a silhouette against a black, blank canvas.",
+        choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
+        endingTitle: "ENDING 21/30: The Static Cleanse",
+        isEnding: true,
+        endingId: 21
+    },
+    ending_truce: { // From basement_check_armed
+        text: "You hold the rifle, but instead of descending, you slowly set it down outside the basement door. You speak to the darkness, 'I am leaving. You can have the house.' The humming stops. A cold wind blows up the stairs, turning the gun to a pile of rust. The house accepts the offering and lets you walk out the front door, unharmed.",
+        choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
+        endingTitle: "ENDING 22/30: The Truce",
+        isEnding: true,
+        endingId: 22
+    },
+    kitchen_freezer_3: { // From investigate_kitchen_1
+        text: "You wrench open the heavy, iced-over freezer door. Inside, there is a body, perfectly preserved and unmoving. It is **you**. Not your reflection, but your full, frozen body. The other you has eyes wide open, staring into the crushing silence of the freezer. You are a copy, a temporary instance. The crushing horror of this realization instantly shuts down your mind.",
+        choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
+        endingTitle: "ENDING 23/30: Cold Storage",
+        isEnding: true,
+        endingId: 23
+    },
+    living_room_curtains_3: { // From investigate_living_room_1
+        text: "You tear the heavy, dusty curtains from the window. The sudden blast of raw moonlight illuminates the room. The shadows, which had been stretching and moving, shriek soundlessly and retreat instantly into the darkest corners of the house. You have found the entity's weakness. The light protects you until dawn.",
+        choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
+        endingTitle: "ENDING 24/30: The Revelation",
+        isEnding: true,
+        endingId: 24
+    },
+    ending_hidden_passage: { // From bathroom_sink_2
+        text: "You push aside the cleaning supplies under the sink. The back panel is loose. You pull it away and find a narrow, dusty utility tunnel leading into the foundation. It's a tight squeeze, but it leads outside, bypassing the entire house structure. You crawl out into the cool night air and run. You left the silence behind.",
+        choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
+        endingTitle: "ENDING 25/30: The Hidden Passage",
+        isEnding: true,
+        endingId: 25
+    },
+    ending_fall: { // From bedroom_window_ledge_1
+        text: "You crawl along the slippery ledge, your muscles screaming. Just as you reach the gutter pipe leading down, your foot slips. You grab the pipe, but your grip fails. You plummet to the cold, hard driveway below. You break several bones, but the searing pain is the first real sound you've heard all night. It is terrible, but it is real.",
+        choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
+        endingTitle: "ENDING 26/30: The Fall",
+        isEnding: true,
+        endingId: 26
+    },
+    ending_charged: { // From corridor_charger_2
+        text: "You type 'HELP BASEMENT' and hit send just as the battery dies. The phone goes dark. But two hours later, you hear sirens approaching the house. The entity retreats instantly from the noise. You survive, but the friend who received the message will never tell you what they saw at the house.",
+        choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
+        endingTitle: "ENDING 27/30: The Charged Call",
+        isEnding: true,
+        endingId: 27
+    },
+    basement_fuse_2: { // From basement_check
+        text: "You feel along the wall until you find the fuse box. You throw the main breaker. A flash of light! The overhead basement light flickers and turns on, revealing the space to be mundane: a storage room. The hum stops. The light and sound are normal. You have banished the darkness by bringing reality back online.",
+        choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
+        endingTitle: "ENDING 28/30: Power Restored",
+        isEnding: true,
+        endingId: 28
+    },
+    kitchen_stove_3: { // From investigate_kitchen_1
+        text: "You manage to light the old gas stove, creating a small, hissing blue flame. You place an aluminum pot on it, letting it heat up. The sound is a beacon. A dark shape rushes from the corridor—but it stops short, confused by the heat and the hiss. It retreats, unable to deal with the chaos of actual energy. You keep the flame burning until sunrise.",
+        choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
+        endingTitle: "ENDING 29/30: The Distraction",
+        isEnding: true,
+        endingId: 29
+    },
+    study_globe_2: { // From investigate_study_1
+        text: "You spin the old globe. It catches on something. You press the spot and a small hinge pops open. Inside the globe is a tightly rolled scroll: a blueprint of the house with a secret tunnel marked, labeled 'Emergency Exit'. You follow the map and escape through a hidden panel in the floorboards. The house let its secrets slip.",
+        choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
+        endingTitle: "ENDING 30/30: The Map",
+        isEnding: true,
+        endingId: 30
+    },
+
+    // --- DEATHS (IDs shifted to start at 31) ---
+
+    // NEW Deaths 31-33
+    death_trapped_laundry: {
+        text: "You try to force the back door open, but you hear a massive *thump* against the doorframe—something is bracing it from the outside. You are trapped in the tiny laundry room. The walls begin to compress slowly, driven inward by an unseen, silent force.",
+        endingDescription: "Crushed by silence.",
+        isDeath: true,
+        endingId: 31 
+    },
+    death_fall: {
+        text: "The jump is further than you thought. You land hard on the gravel, twisting your ankle and splintering your shin bone. The pain is intense, but the sound it makes is instantly absorbed by the silence. You lie there, helpless, watching a dark shape slink toward you from the edge of the property.",
+        endingDescription: "Failed leap of faith.",
+        isDeath: true,
+        endingId: 32
+    },
+    death_charged_call: {
+        text: "You dial 911. It rings once, twice... then a soundless, massive static discharge comes through the earpiece. It doesn't kill you, but it fries your optic nerves. You are blinded, left stumbling in the corridor, unable to navigate the dark house.",
+        endingDescription: "Blinded by the signal.",
+        isDeath: true,
+        endingId: 33
+    },
+
+    // Original Deaths 34-42 (Shifted IDs)
+    death_staredown: {
+        text: "You stare at the eyes, paralyzed by fear. The eyes seem to grow wider, a black void behind them. They slowly blink, and in that instant of darkness, the entity crosses the threshold. You feel its cold breath on your face. You can't move, you can't scream, and then there is only the silence.",
+        endingDescription: "Never stare into the void.",
+        isDeath: true,
+        endingId: 34 
+    },
+    death_trapped: {
+        text: "You move to the window, but before you can open it, a heavy, deliberate thud rattles the door. You hear slow, dragging footsteps stop right outside. They are waiting. You are trapped, a prisoner in your own bedroom, and the daylight is still hours away.",
+        endingDescription: "Your attempt at escape was too loud.",
+        isDeath: true,
+        endingId: 35
+    },
+    death_tripped: {
+        text: "Panic sets in. You spin around to run back to your room, but something unseen trips you in the darkness. You crash to the floor, stunned, a sharp pain in your ankle. A heavy presence looms over you, its immense silence crushing the air from your lungs.",
+        endingDescription: "A poor choice of escape.", 
+        isDeath: true,
+        endingId: 36
+    },
+    death_listened: {
+        text: "You lean in closer to listen. The scratching speeds up rapidly, followed by a sound of splintering wood as whatever is in there bursts through the door! It's too fast, a blur of motion and shadow. You never even see what it is before the silence claims you.",
+        endingDescription: "Curiosity killed you.",
+        isDeath: true,
+        endingId: 37
+    },
+    death_paralyzed: {
+        text: "You stand frozen, unwilling to react to the cold breath. That was your mistake. The entity has all the time in the world. It doesn't strike; it just holds you there, motionless, a captive audience for the rest of the night until your heart finally gives out.",
+        endingDescription: "Frozen in time.",
+        isDeath: true,
+        endingId: 38
+    },
+    death_written: {
+        text: "You wipe the message away. Your hand comes back sticky and red. A voice, loud and guttural, echoes from the television screen: 'Thank you for cleaning up. Now rest.' The TV screen pulses and pulls you in, fusing you with the distorted image.",
+        endingDescription: "Erased from reality.",
+        isDeath: true,
+        endingId: 39 
+    },
+    death_call: {
+        text: "You dial 9-1-1. The distorted dial tone breaks into a laugh. A voice speaks directly into the receiver, 'You're calling the wrong number.' The phone line snaps and delivers a lethal, burning shock that leaves you smoking on the floor.",
+        endingDescription: "Dial tone of death.",
+        isDeath: true,
+        endingId: 40
+    },
+    death_descent: {
+        text: "You descend the stairs. The hum grows into a painful vibration. As you reach the dirt floor, the trap springs. The ceiling collapses, and you are crushed by the sheer, overwhelming weight of the entire house.",
+        endingDescription: "The earth claimed you.",
+        isDeath: true,
+        endingId: 41
+    },
+    death_blind_shot: {
+        text: "You fire the rifle into the darkness of the basement. The sound is deafening, the echo disorienting. You hit nothing but the support beam of the house. The entire structure groans, and the floor gives way beneath you into the black abyss below.",
+        endingDescription: "Self-destruction.",
+        isDeath: true,
+        endingId: 42
+    },
+    
+    title_screen: { 
+        text: "Returning to the main menu...",
+        choices: [],
+        isTitle: true
+    }
+};
+
+        // --- Game Logic and State Management ---
+        
+        // Function to determine the total number of *tracked* endings (nodes with isEnding: true)
+        function calculateTotalEndings() {
+            let count = 0;
+            for (const key in window.storyNodes) {
+                if (window.storyNodes[key].isEnding === true) {
+                    count++;
+                }
+            }
+            TOTAL_ENDINGS = count;
+        }
+
+        // CRITICAL CHANGE: Making populateEndingsList global so the console cheat can call it
+window.populateEndingsList = function() {
+    calculateTotalEndings();
+    const unlockedEndings = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    listContentEl.innerHTML = ''; // Clear old content
+    
+    const endingNodes = Object.keys(window.storyNodes)
+        .map(key => ({ ...window.storyNodes[key], nodeKey: key }))
+        .filter(node => node.isEnding)
+        .sort((a, b) => a.endingId - b.endingId);
+
+    endingNodes.forEach(node => {
+        const isUnlocked = unlockedEndings.includes(node.nodeKey);
+        
+        // Extract the title part after "X/Y: "
+        const titleMatch = node.endingTitle.match(/: (.+)/);
+        const cleanTitle = titleMatch ? titleMatch[1].trim() : 'Unknown Ending';
+
+        const item = document.createElement('div');
+        item.classList.add('ending-item');
+        if (isUnlocked) {
+            item.classList.add('unlocked');
+        }
+        
+        // Display the name based on lock status
+        const dynamicTitle = node.endingTitle.replace('X/Y', `${node.endingId}/${TOTAL_ENDINGS}`);
+        const displayName = isUnlocked ? dynamicTitle : `${node.endingId}/${TOTAL_ENDINGS}: ??????????`;
+        const statusSymbol = isUnlocked ? '✓' : '✗';
+
+        item.innerHTML = `
+            <span class="ending-name">${displayName}</span>
+            <span class="status">${statusSymbol}</span>
+        `;
+        listContentEl.appendChild(item);
+    });
+    
+    // Add a completion status at the top of the list
+    const unlockedCount = unlockedEndings.length;
+    const statusHeader = document.createElement('h4');
+    statusHeader.style.color = unlockedCount === TOTAL_ENDINGS ? '#44ff44' : '#f55'; /* Light red/green status */
+    statusHeader.style.textAlign = 'center';
+    statusHeader.style.marginTop = '20px';
+    statusHeader.innerHTML = `**Status:** ${unlockedCount}/${TOTAL_ENDINGS} Found`;
+    listContentEl.prepend(statusHeader);
+}
+
+        // Function to toggle the sidebar menu
+        function toggleEndingsMenu() {
+            window.populateEndingsList();
+            sidebarEl.classList.toggle('open');
+            document.body.classList.toggle('sidebar-open');
+        }
+        window.toggleEndingsMenu = toggleEndingsMenu; // Make it globally accessible for the onclick event
+
+        // --- Glitch Functionality (Unchanged) ---
+        function setRandomGlitchTimer() {
+            if (glitchTimer) {
+                clearTimeout(glitchTimer);
+            }
+
+            const randomTime = Math.random() * 4000 + 1000; // 1s to 5s
+
+            glitchTimer = setTimeout(() => {
+                gameContainerEl.classList.add('glitch-active');
+
+                const glitchDuration = Math.random() * 100 + 50; // 50ms to 150ms
+                setTimeout(() => {
+                    gameContainerEl.classList.remove('glitch-active');
+                    setRandomGlitchTimer(); 
+                }, glitchDuration);
+
+            }, randomTime);
+        }
+
+        function stopGlitch() {
+            clearTimeout(glitchTimer);
+            glitchTimer = null;
+            gameContainerEl.classList.remove('glitch-active');
+        }
+
+        // Function to manage screen display (Modified to stop audio on title screen)
+        function showScreen(screenId) {
+            startScreenEl.classList.remove('active');
+            gameScreenEl.classList.remove('active');
+
+            if (screenId === 'start') {
+                stopGlitch(); 
+                
+                // Pause audio when returning to title screen
+                ambianceSfx.pause();
+                rainSfx.pause();
+                
+                startScreenEl.classList.add('active');
+                gameContainerEl.classList.remove('game-over');
+                startScreenEl.classList.remove('fade-out');
+            } else if (screenId === 'game') {
+                setRandomGlitchTimer(); 
+                gameScreenEl.classList.add('fade-out'); 
+                gameScreenEl.classList.add('active');
+            }
+        }
+
+        // Function to handle the smooth fade transition to the game (Modified to start audio)
+        function startGame() {
+            calculateTotalEndings(); 
+            gameState = {};
+            
+            startScreenEl.classList.add('fade-out');
+
+            // Close the sidebar if it's open when starting the game
+            if(sidebarEl.classList.contains('open')) {
+                toggleEndingsMenu();
+            }
+            
+            // Start playing the ambiance and rain sound effects on user interaction
+            ambianceSfx.play().catch(e => console.error("Could not play ambiance sfx:", e));
+            rainSfx.play().catch(e => console.error("Could not play rain sfx:", e));
+
+            setTimeout(() => {
+                startScreenEl.classList.remove('active');
+                gameScreenEl.classList.add('active');
+                
+                showStoryNode('start');
+
+                gameScreenEl.classList.remove('fade-out');
+
+            }, 2000); 
+        }
+        
+        // Function to display a specific story node (HEAVILY MODIFIED)
+        function showStoryNode(nodeName) {
+            if (nodeName === 'title_screen') {
+                showScreen('start');
+                return; 
+            }
+            
+            const node = window.storyNodes[nodeName];
+            let htmlContent = '';
+            
+            // Collect choices, guaranteeing a 'Return to Title Screen' button for endings/deaths
+            let currentChoices = node.choices ? [...node.choices] : [];
+
+            if (node.isEnding && node.endingId) {
+                // Save the ending node key to localStorage
+                let unlockedEndings = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+                const nodeKey = Object.keys(window.storyNodes).find(key => window.storyNodes[key].endingId === node.endingId);
+
+                if (nodeKey && !unlockedEndings.includes(nodeKey)) {
+                    unlockedEndings.push(nodeKey);
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(unlockedEndings));
+                }
+                
+                // DYNAMIC TITLE: Use current ending ID and the calculated total
+                const dynamicTitle = node.endingTitle.replace('X/Y', `${node.endingId}/${TOTAL_ENDINGS}`);
+                
+                htmlContent = `<p class="description">${node.text}</p>`;
+                htmlContent += `<h2>${dynamicTitle}</h2>`;
+                
+                // GUARANTEE RETURN BUTTON
+                if (!currentChoices.some(choice => choice.nextNode === 'title_screen')) {
+                    currentChoices.push({ text: "Return to Title Screen", nextNode: "title_screen" });
+                }
+            
+            } else if (node.isDeath) {
+                
+                // DYNAMIC GAME OVER TITLE: Calculate death number and total deaths
+                const deathTotal = Object.values(window.storyNodes).filter(n => n.isDeath).length;
+                const deathNum = node.endingId - TOTAL_ENDINGS; 
+
+                htmlContent = `<p class="description">${node.text}</p>`;
+                htmlContent += `<h2>GAME OVER ${deathNum}/${deathTotal}: ${node.endingDescription}</h2>`;
+
+                // GUARANTEE RETURN BUTTON
+                if (!currentChoices.some(choice => choice.nextNode === 'title_screen')) {
+                    currentChoices.push({ text: "Return to Title Screen", nextNode: "title_screen" });
+                }
+
+            } else {
+                // For regular game nodes
+                htmlContent = `<p>${node.text}</p>`;
+            }
+
+            storyTextEl.innerHTML = htmlContent;
+
+            while (choicesEl.firstChild) {
+                choicesEl.removeChild(choicesEl.firstChild);
+            }
+
+            currentChoices.forEach(choice => {
+                const button = document.createElement('button');
+                button.innerText = choice.text;
+                button.classList.add('choice-btn');
+                button.addEventListener('click', () => showStoryNode(choice.nextNode));
+                choicesEl.appendChild(button);
+            });
+
+            if (node.isDeath || node.isEnding) {
+                gameContainerEl.classList.add('game-over');
+                stopGlitch(); 
+            } else {
+                gameContainerEl.classList.remove('game-over');
+                setRandomGlitchTimer(); 
+            }
+        }
+        
+        // --- Flashlight Effect ---
+        function handleMouseMove(e) {
+            // Update CSS variables for the flashlight to follow the cursor
+            document.body.style.setProperty('--x', `${e.clientX}px`);
+            document.body.style.setProperty('--y', `${e.clientY}px`);
+        }
+        document.addEventListener('mousemove', handleMouseMove);
+
+
+        // --- Event Listeners and Initialization ---
+
+        startButtonEl.addEventListener('click', startGame);
+
+        // Calculate total on load and show the start screen
+        calculateTotalEndings();
+        showScreen('start');
+    </script>
+</body>
+</html>
