@@ -347,6 +347,9 @@ body::after {
 </head>
 <body>
     
+    <audio id="ambiance-sfx" loop autoplay preload="auto" src="/ambiance sfx.mp3" style="display: none;"></audio>
+    <audio id="rain-sfx" loop autoplay preload="auto" src="/rain sfx/mp3" style="display: none;"></audio>
+
     <div id="endings-sidebar">
         <a href="javascript:void(0)" class="closebtn" onclick="toggleEndingsMenu()">&times;</a>
         <h3>Endings Tracker</h3>
@@ -1062,7 +1065,7 @@ window.populateEndingsList = function() {
                 gameScreenEl.classList.add('active');
             }
         }
-
+        
         // Function to handle the smooth fade transition to the game (Slightly modified to call calculateTotalEndings)
         function startGame() {
             calculateTotalEndings(); 
