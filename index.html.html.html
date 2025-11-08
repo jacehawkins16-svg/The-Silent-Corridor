@@ -87,26 +87,25 @@ body::after {
 
 
 .container {
-    max-width: 700px;
-    width: 95%; 
-    box-sizing: border-box;
+    /* UPDATED: Set fixed width and height for a consistent game frame */
+    width: 700px; 
+    height: 600px; 
+    max-width: 95%; /* Keep max-width for smaller screens */
     
-    max-height: 100vh; 
-    overflow-y: auto;
+    box-sizing: border-box;
+    overflow-y: auto; /* Allows content to scroll within the fixed height */
     overflow-x: hidden; 
     
     text-align: left;
     line-height: 1.6;
     animation: none !important; 
-    /* Restored a defined background color for the content box to sit on the ambient light */
     background-color: rgba(17, 0, 0, 0.7); 
     padding: 20px; 
     border-radius: 5px;
-    /* Removed box shadow as it would be visible outside the light */
     box-shadow: none; 
     position: relative; 
     transition: margin-left 0.5s; 
-    z-index: 11; /* Sits above the light source and below the shadow mask */
+    z-index: 11; 
 }
         h1 {
             color: #f55; 
@@ -129,22 +128,24 @@ body::after {
         /* --- Screen Management --- */
         .screen {
             display: none;
-            width: 100%;
             opacity: 1;
+            /* CRITICAL: This is the transition property used for the 2.0s main menu fade */
             transition: opacity 2.0s ease-in-out; 
+            box-sizing: border-box; /* Ensure padding is included in the container's height */
         }
         .screen.active {
             display: block;
         }
         
         .fade-out {
-            opacity: 0;
+            opacity: 0 !important; /* Force opacity to 0 to override parent CSS */
         }
 
 /* --- Start Menu & Animation Styles --- */
 #start-screen {
     text-align: center;
-    padding: 40px 20px; 
+    /* UPDATED: Increased vertical padding for better spacing in the 600px container */
+    padding: 80px 40px; 
 }
 
         #start-title {
@@ -174,6 +175,23 @@ body::after {
         }
 
         /* --- Game Screen Elements --- */
+/* Removed min-height, as the parent container now dictates the fixed size */
+#game-screen {
+    opacity: 0; 
+    transition: opacity 2.0s ease-in-out; 
+}
+/* This class must be present for the container to fade in */
+#game-screen.active {
+    display: block; 
+    opacity: 1; /* Fades into this state */
+}
+
+/* NEW/MODIFIED: Ensure content starts hidden so the JS fade works */
+#story-text, #choices {
+    opacity: 0; /* Ensures the content is initially hidden before the 1.5s fade-in */
+    /* MODIFIED: Change in-game transition fade to 1.5 seconds */
+    transition: opacity 1.5s ease-in-out; 
+}
         
         #story-text {
             margin-top: 20px;
@@ -314,8 +332,11 @@ body::after {
         }
 
 @media (max-width: 768px) {
+    /* Container size reverts to a percentage on small screens for responsiveness */
     .container {
-        padding: 10px;
+        width: 95%; /* Use 95% of screen width */
+        height: 90vh; /* Use 90% of screen height */
+        max-width: none; /* Override fixed 700px width */
     }
     /* NEW: Use 90% width on smaller screens */
     #endings-sidebar {
@@ -359,7 +380,7 @@ body::after {
         
         <div id="start-screen" class="screen active">
             <h1 id="start-title">The Silent Corridor</h1>
-            <button id="start-button" class="choice-btn">BEGIN</button>
+            <button id="start-button" class="choice-btn">BEGIN NIGHTMARE</button>
             <button id="endings-button" class="choice-btn" onclick="toggleEndingsMenu()">ENDINGS</button>
         </div>
 
@@ -386,7 +407,9 @@ body::after {
         
         // NEW: Get audio elements
         const rainAmbiance = document.getElementById('rainAmbiance');
-        const generalAmbiance = document.getElementById('generalAmbiance');
+
+        // CRITICAL MODIFICATION: Duration for the in-game content transition fade (1.5 seconds)
+        const STORY_TRANSITION_DURATION_MS = 1500; 
 
 // Initialize the game state when the page loads
 document.addEventListener('DOMContentLoaded', () => {
@@ -395,9 +418,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('start-screen').classList.contains('active')) {
         document.body.classList.remove('game-over');
     }
-    
-    // NEW: Set initial volume for the general ambiance
-    generalAmbiance.volume = 0.15; // 15% volume
     
     // NEW: Attempt to start the sound on load (will likely require user interaction)
     startAmbiance(); 
@@ -1057,46 +1077,80 @@ window.populateEndingsList = function() {
             gameContainerEl.classList.remove('glitch-active');
         }
 
-        // Function to manage screen display (Unchanged)
+        // MODIFIED FUNCTION: Manages screen display to enable start screen fade-in
         function showScreen(screenId) {
             startScreenEl.classList.remove('active');
             gameScreenEl.classList.remove('active');
 
             if (screenId === 'start') {
                 stopGlitch(); 
-                startScreenEl.classList.add('active');
                 gameContainerEl.classList.remove('game-over');
-                startScreenEl.classList.remove('fade-out');
+                
+                // 1. Set the opacity to 0 and make it active (display: block)
+                startScreenEl.classList.add('fade-out');
+                startScreenEl.classList.add('active'); 
+                
+                // 2. Small timeout to ensure the browser registers opacity: 0 before triggering transition
+                setTimeout(() => {
+                    // 3. Remove the fade-out class to transition opacity back to 1 (2.0s)
+                    startScreenEl.classList.remove('fade-out');
+                }, 50);
+
             } else if (screenId === 'game') {
                 setRandomGlitchTimer(); 
-                gameScreenEl.classList.add('fade-out'); 
                 gameScreenEl.classList.add('active');
+                gameScreenEl.classList.remove('fade-out'); // Ensure game-screen starts at 1
             }
         }
 
-        // NEW: Function to start both audio tracks
+        // NEW: Function to start audio track
         function startAmbiance() {
-            // Audio elements need to be played as a result of a user action (like a button click)
-            // so we try to play it once the DOM is ready, but more reliably when the user clicks 'BEGIN'.
-            
-            // Try/catch blocks are necessary because .play() returns a promise that can be rejected
             try {
                 rainAmbiance.play().catch(e => console.log("Rain audio playback failed:", e));
             } catch(e) { /* ignore, will retry on click */ }
-            
-            try {
-                generalAmbiance.play().catch(e => console.log("General ambiance playback failed:", e));
-            } catch(e) { /* ignore, will retry on click */ }
         }
 
-        // Function to handle the smooth fade transition to the game (Slightly modified to call calculateTotalEndings and startAmbiance)
+        // MODIFIED FUNCTION: Handles the full 2.0s screen fade-out and the new fade-in for the main menu.
+        function handleInGameTransition(nextNode) {
+            
+            // If transitioning back to the title screen from an ending/death
+            if (nextNode === 'title_screen') {
+                // Apply the fade-out class to the whole game screen container (2.0s transition)
+                gameScreenEl.classList.add('fade-out'); 
+
+                // Wait for the full screen fade-out duration (2.0s defined in CSS)
+                setTimeout(() => {
+                    // 1. Hide the game screen completely after it's faded out
+                    gameScreenEl.classList.remove('active');
+                    gameScreenEl.classList.remove('fade-out');
+                    
+                    // 2. Switch to the start screen, which now handles its own fade-in via showScreen('start')
+                    showStoryNode(nextNode, true); 
+                }, 2000); // Wait for the full 2.0s fade
+
+                return;
+            }
+
+            // 1. Fade out current content (for regular in-game node transitions - 1.5s)
+            storyTextEl.style.opacity = '0';
+            choicesEl.style.opacity = '0';
+
+            // 2. Wait for the content fade-out duration (1.5s)
+            setTimeout(() => {
+                // 3. Update the content, telling showStoryNode this is a transition (not initial load)
+                showStoryNode(nextNode, false); 
+            }, STORY_TRANSITION_DURATION_MS);
+        }
+
+        // MODIFIED FUNCTION: Handles the initial transition to the game screen
         function startGame() {
             calculateTotalEndings(); 
             gameState = {};
             
+            // Start screen fades out over 2.0s
             startScreenEl.classList.add('fade-out');
             
-            // NEW: Start the ambiance reliably after user interaction
+            // Start the ambiance reliably after user interaction
             startAmbiance();
 
             // Close the sidebar if it's open when starting the game
@@ -1104,19 +1158,24 @@ window.populateEndingsList = function() {
                 toggleEndingsMenu();
             }
 
+            // The first delay allows the start screen to fully fade out (CSS transition: 2.0s)
             setTimeout(() => {
-                startScreenEl.classList.remove('active');
-                gameScreenEl.classList.add('active');
-                
-                showStoryNode('start');
+                // A. Deactivate the start screen and start the game screen fade-in (2.0s fade)
+                startScreenEl.classList.remove('active'); 
+                gameScreenEl.classList.add('active'); 
 
-                gameScreenEl.classList.remove('fade-out');
+                // B. After the game screen is fully visible (2.0s), trigger the content fade (1.5s)
+                // This ensures the content is never instantly visible before the screen is ready.
+                setTimeout(() => {
+                    // Load and fade-in the content (using isInitialLoad=false to trigger the 1.5s fade)
+                    showStoryNode('start', false);
+                }, 2000); // Delay for the container fade (2.0s)
 
-            }, 2000); 
+            }, 2000); // Delay for the start screen fade (2.0s)
         }
         
-        // Function to display a specific story node (HEAVILY MODIFIED)
-        function showStoryNode(nodeName) {
+        // MODIFIED FUNCTION: Simplified content fade logic.
+        function showStoryNode(nodeName, isInitialLoad = false) {
             if (nodeName === 'title_screen') {
                 showScreen('start');
                 return; 
@@ -1178,7 +1237,8 @@ window.populateEndingsList = function() {
                 const button = document.createElement('button');
                 button.innerText = choice.text;
                 button.classList.add('choice-btn');
-                button.addEventListener('click', () => showStoryNode(choice.nextNode));
+                // 2. IMPORTANT: Change the event listener to call the transition wrapper
+                button.addEventListener('click', () => handleInGameTransition(choice.nextNode)); 
                 choicesEl.appendChild(button);
             });
 
@@ -1189,6 +1249,16 @@ window.populateEndingsList = function() {
                 gameContainerEl.classList.remove('game-over');
                 setRandomGlitchTimer(); 
             }
+            
+            // 3. Execute fade-in: Transition opacity from 0 to 1 (1.5s)
+            // The content is now set up. If it's not a title screen, it should fade in.
+            
+            // A small delay to ensure the browser registers the opacity: 0 state (from CSS or transition)
+            // before transitioning to 1
+            setTimeout(() => {
+                storyTextEl.style.opacity = '1';
+                choicesEl.style.opacity = '1';
+            }, 50); 
         }
         
         // --- Flashlight Effect ---
