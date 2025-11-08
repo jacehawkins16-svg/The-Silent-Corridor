@@ -396,13 +396,10 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.classList.remove('game-over');
     }
     
-    // REMOVED: Set initial volume for the general ambiance
-    // REMOVED: generalAmbiance.volume = 0.15; // 15% volume
+    // MODIFIED: Set a volume for the rain ambiance
+    rainAmbiance.volume = 0.25; 
     
-    // NEW: Set a volume for the rain ambiance
-    rainAmbiance.volume = 0.25; // Set volume for rain
-
-    // NEW: Attempt to start the sound on load (will likely require user interaction)
+    // MODIFIED: Attempt to start the sound immediately on load 
     startAmbiance(); 
 });
 
@@ -920,7 +917,7 @@ window.storyNodes = {
     death_tripped: {
         text: "Panic sets in. You spin around to run back to your room, but something unseen trips you in the darkness. You crash to the floor, stunned, a sharp pain in your ankle. A heavy presence looms over you, its immense silence crushing the air from your lungs.",
         endingDescription: "A poor choice of escape.", 
-        isDeath: true,
+    isDeath: true,
         endingId: 36
     },
     death_listened: {
@@ -1077,32 +1074,25 @@ window.populateEndingsList = function() {
             }
         }
 
-        // NEW: Function to start audio track(s)
+        // MODIFIED: Function to start audio tracks (General ambiance reference removed)
         function startAmbiance() {
-            // The 'loop' attribute is already set in HTML, so we just need to play it.
-            // Modern browsers require a user interaction (like a button click) to play audio.
+            // Audio elements need to be played as a result of a user action (like a button click)
+            // so we try to play it once the DOM is ready, but more reliably when the user clicks 'BEGIN'.
             
+            // Try/catch blocks are necessary because .play() returns a promise that can be rejected
             try {
-                // Play the rain ambiance
-                // The element is already defined with 'loop' in HTML: <audio id="rainAmbiance" loop src="rain sfx.mp3"></audio>
-                rainAmbiance.play().catch(e => console.log("Rain audio playback failed (user interaction required):", e));
+                rainAmbiance.play().catch(e => console.log("Rain audio playback failed:", e));
             } catch(e) { /* ignore, will retry on click */ }
-            
-            // REMOVED: General ambiance logic as the element is missing in HTML
-            // try {
-            //     generalAmbiance.play().catch(e => console.log("General ambiance playback failed:", e));
-            // } catch(e) { /* ignore, will retry on click */ }
         }
 
-        // Function to handle the smooth fade transition to the game (Slightly modified to call calculateTotalEndings and startAmbiance)
+        // MODIFIED: Function to handle the smooth fade transition to the game
         function startGame() {
             calculateTotalEndings(); 
             gameState = {};
             
             startScreenEl.classList.add('fade-out');
             
-            // NEW: Start the ambiance reliably after user interaction
-            startAmbiance();
+            // startAmbiance() call REMOVED from here, as it is now called on DOMContentLoaded
 
             // Close the sidebar if it's open when starting the game
             if(sidebarEl.classList.contains('open')) {
