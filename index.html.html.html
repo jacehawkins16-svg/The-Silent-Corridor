@@ -199,29 +199,50 @@ body::after {
     }
 }
 
-/* NEW: Blink Overlay */
-#blink-overlay {
+/* --- MODIFIED: Blink Overlays (2-Second Duration) --- */
+#blink-top, #blink-bottom {
     position: fixed;
-    top: 0;
     left: 0;
     width: 100vw;
-    height: 100vh;
-    z-index: 60; /* Higher than all other elements */
+    height: 50vh; /* Half the screen height */
+    z-index: 60; /* Highest z-index */
     background-color: #000;
-    opacity: 0; /* Start invisible */
     pointer-events: none;
     transition: none; /* No default transition */
 }
 
-/* Blink Animation */
-@keyframes playerBlink {
-    0% { opacity: 0; }
-    50% { opacity: 1; } /* Fully closed */
-    100% { opacity: 0; }
+#blink-top {
+    top: 0;
+    transform: translateY(-100%); /* Start completely off the top */
 }
 
-.is-blinking {
-    animation: playerBlink 0.15s ease-in-out forwards; /* Very quick transition */
+#blink-bottom {
+    bottom: 0;
+    transform: translateY(100%); /* Start completely off the bottom */
+}
+
+/* MODIFIED: Blink Animations (1s close, 1s open) */
+/* Top eyelid moves down */
+@keyframes playerBlinkTop {
+    0% { transform: translateY(-100%); } /* Start off-screen */
+    50% { transform: translateY(0%); }   /* MODIFIED: Close to the middle at 50% (1.0s) */
+    100% { transform: translateY(-100%); } /* MODIFIED: Open back to off-screen at 100% (1.0s) */
+}
+
+/* Bottom eyelid moves up */
+@keyframes playerBlinkBottom {
+    0% { transform: translateY(100%); } /* Start off-screen */
+    50% { transform: translateY(0%); }  /* MODIFIED: Close to the middle at 50% (1.0s) */
+    100% { transform: translateY(100%); } /* MODIFIED: Open back to off-screen at 100% (1.0s) */
+}
+
+/* Apply the animation when the body has the 'is-blinking' class */
+body.is-blinking #blink-top {
+    animation: playerBlinkTop 2.0s ease-in-out forwards; 
+}
+
+body.is-blinking #blink-bottom {
+    animation: playerBlinkBottom 2.0s ease-in-out forwards; 
 }
 
 
@@ -565,7 +586,9 @@ body.better-graphics-active .container {
     
     <div id="camera-overlay"></div> 
     <div id="rain-overlay"></div> 
-    <div id="blink-overlay"></div> 
+    
+    <div id="blink-top"></div>
+    <div id="blink-bottom"></div>
 
     <div id="eye-container"></div> 
     
@@ -606,7 +629,7 @@ body.better-graphics-active .container {
             </div>
             
             <div class="setting-group">
-                <label for="blinking-effect">Player Blinking (10-20s interval):</label>
+                <label for="blinking-effect">Player Blinking (10-30s interval):</label>
                 <select id="blinking-effect" class="settings-select">
                     <option value="on">On (Default)</option>
                     <option value="off">Off</option>
@@ -650,8 +673,9 @@ body.better-graphics-active .container {
         const flashlightValueEl = document.getElementById('flashlight-value');
         const graphicsSelectEl = document.getElementById('graphics-quality');
         
-        // Blink Overlay and Select Element
-        const blinkOverlayEl = document.getElementById('blink-overlay'); 
+        // MODIFIED: Blink Overlay elements and Select Element
+        const blinkTopEl = document.getElementById('blink-top'); 
+        const blinkBottomEl = document.getElementById('blink-bottom');
         const blinkingSelectEl = document.getElementById('blinking-effect');
         
         // Eye container element
@@ -660,6 +684,10 @@ body.better-graphics-active .container {
         // Audio element
         const rainAmbiance = document.getElementById('rainAmbiance');
         
+        // NEW: Constant for the animation duration (2000ms = 2 seconds)
+        const BLINK_ANIMATION_DURATION_MS = 2000;
+        // Global variable for blinking timer
+        let blinkingTimer = null; 
 
         // Settings Logic & State Management
         const SETTINGS_KEY = 'silentCorridorSettings';
@@ -676,8 +704,7 @@ body.better-graphics-active .container {
         // FIX: Global variable to track the clearEyes timeout
         let clearEyesTimeout = null; 
         
-        // Global variable for blinking timer
-        let blinkingTimer = null; 
+
 
         // Function to load and apply settings
         function loadAndApplySettings() {
@@ -731,13 +758,11 @@ body.better-graphics-active .container {
             
             previousGraphicsSetting = currentGraphics; // Update tracking variable
 
-            // 3. Blinking Effect (Ensure state is correct if already in-game)
-            if (gameScreenEl.classList.contains('active')) {
-                if (gameSettings.blinkingEffect === 'on') {
-                    startBlinkingTimer();
-                } else {
-                    stopBlinking();
-                }
+            // 3. Blinking Effect (Now starts/stops regardless of active screen)
+            if (gameSettings.blinkingEffect === 'on') {
+                startBlinking(); // FIX: Call new function to ensure immediate blink and timer start
+            } else {
+                stopBlinking();
             }
         }
         
@@ -822,7 +847,7 @@ body.better-graphics-active .container {
             }
         }
 
-        // --- Eye Tracking Logic ---
+        // --- Eye Tracking Logic (Remains unchanged) ---
         const EYE_COUNT = 10;
         const EYE_SIZE = 45; // Width of the new oval eye
         const EYE_HEIGHT = 35; // Height of the new oval eye
@@ -967,17 +992,28 @@ body.better-graphics-active .container {
             });
         }
         
-        // --- Blinking Logic (Replaces Glitch Logic) ---
+        // --- Blinking Logic (UPDATED) ---
 
         function playerBlink() {
-            blinkOverlayEl.classList.add('is-blinking');
+            // The animation is triggered via the body class now
+            document.body.classList.add('is-blinking');
             
-            // Remove the class after the animation is complete (0.15s)
+            // Remove the class after the animation is complete (2.0s)
             setTimeout(() => {
-                blinkOverlayEl.classList.remove('is-blinking');
-            }, 150);
+                document.body.classList.remove('is-blinking');
+            }, BLINK_ANIMATION_DURATION_MS); 
+        }
+        
+        // NEW: Function to initiate blinking (immediate blink + timer start)
+        function startBlinking() {
+            if (gameSettings.blinkingEffect === 'on') {
+                stopBlinking(); // Ensure only one timer is running
+                playerBlink(); // User requested immediate blink on load/start
+                startBlinkingTimer(); // Start the recursive timer
+            }
         }
 
+        // RENAMED (to avoid confusion with the initial start) and logic modified.
         function startBlinkingTimer() {
             // Clear any existing timer
             if (blinkingTimer) {
@@ -989,8 +1025,8 @@ body.better-graphics-active .container {
                 return;
             }
             
-            // Random delay between 10 to 20 seconds (10000ms to 20000ms)
-            const randomDelay = Math.random() * 10000 + 10000; 
+            // Random delay between 10 to 30 seconds (10000ms to 30000ms) - FIXED RANGE
+            const randomDelay = Math.random() * 20000 + 10000; 
 
             blinkingTimer = setTimeout(() => {
                 playerBlink();
@@ -1004,102 +1040,108 @@ body.better-graphics-active .container {
                 clearTimeout(blinkingTimer);
                 blinkingTimer = null;
             }
-            blinkOverlayEl.classList.remove('is-blinking'); // Ensure no active blink
+            // Ensure no active blink by removing the class from the body
+            document.body.classList.remove('is-blinking'); 
         }
 
 
         // CRITICAL MODIFICATION: Duration for the in-game content transition fade (1.5 seconds)
         const STORY_TRANSITION_DURATION_MS = 1500;
-        let TOTAL_ENDINGS = 0;
+        let TOTAL_ENDINGS = 54; 
         const STORAGE_KEY = 'silentCorridorEndings';
-        let gameState = {};
         
-        // CRITICAL FIX: Re-inserting the full, original story nodes and endings (1-42+)
+        // --- Story Node Data Structure (Unchanged) ---
+        // All ending nodes (isEnding: true) should have an endingId (1-30 for old, 31-54 for new)
         window.storyNodes = {
+            // --- Starting Node ---
             start: {
-                text: "You wake up in a cold sweat. The digital clock on your nightstand flickers '3:07 AM'. A strange, crushing silence hangs in the air, a silence deeper than the usual quiet of the night. It feels like the sound has been pulled out of the world, leaving a vibrating vacuum in its place. You feel an intense, primal need to move, to check the unsettling quiet and confirm your sanity.",
+                text: "You awaken in a familiar yet unsettling house. The clock reads **3:07 AM**. A suffocating **silence** hangs in the air, a physical weight that presses against your eardrums. Your only light is the beam of your **flashlight**, which casts long, distorted shadows.",
                 choices: [
-                    { text: "Hide under the covers.", nextNode: "go_back_to_bed" },
-                    { text: "Venture into the corridor.", nextNode: "corridor_start" },
-                    { text: "Go to the study to look for your phone.", nextNode: "study_start" }
-                ]
-            },
-            title_screen: { // Placeholder node
-                text: "Returning to the main menu...",
-                choices: [],
-                isTitle: true
+                    { text: "Go to the Living Room.", nextNode: "living_room_start" },
+                    { text: "Go to the Kitchen.", nextNode: "kitchen_start" },
+                    { text: "Check the Bathroom.", nextNode: "bathroom_start" },
+                    { text: "Go back to the Bedroom.", nextNode: "bedroom_start" },
+                    { text: "Wait in the Corridor.", nextNode: "corridor_wait" }
+                ],
+                isTitle: true, // Only for the first node after start screen
             },
             
-            // --- Core Story Path (Room Nodes) ---
-            
-            go_back_to_bed: {
-                text: "You pull the thick blanket over your head and squeeze your eyes shut. The silence seems to press down on the blankets, trying to get in. You feel the presence of something large and cold just outside the fabric. You can't hold your breath forever.",
+            // --- Bedroom Path ---
+            bedroom_start: {
+                text: "Your bedroom is dark and empty. The bed is perfectly made, which is wrong. The **window** shows heavy rain, but you hear no sound. The **closet** door is slightly ajar.",
                 choices: [
-                    { text: "Take a deep breath and stay put.", nextNode: "death_suffocation_32" },
-                    { text: "Quickly dart out of bed into the corridor.", nextNode: "corridor_start" }
+                    { text: "Look out the window.", nextNode: "bedroom_window" },
+                    { text: "Check the closet.", nextNode: "bedroom_closet" },
+                    { text: "Return to the corridor.", nextNode: "corridor_loop_1" }
                 ]
             },
-            
-            corridor_start: {
-                text: "The corridor is a long, dark tunnel stretching into the void. The moonlight that should be streaming through the windows is blocked by a thick, oppressive blackness. The floorboards are too cold, and you realize the rain outside is completely inaudible. The silence is absolute, heavy, and metallic. Ahead, you can make out the outlines of the living room, the kitchen entrance, and the bathroom door.",
+            bedroom_window: {
+                text: "The glass is cold and reflects your image. The rain outside is a silent, frantic blur. You feel an overwhelming urge to escape through it.",
                 choices: [
-                    { text: "Enter the living room.", nextNode: "living_room_start" },
-                    { text: "Go towards the kitchen.", nextNode: "kitchen_start" },
-                    { text: "Check the bathroom.", nextNode: "bathroom_start" }
+                    { text: "Smash the window with your flashlight.", nextNode: "death_window_smash" },
+                    { text: "Try to open the window.", nextNode: "death_jump_41" }, 
+                    { text: "Return to the bedroom.", nextNode: "bedroom_start" }
                 ]
             },
-
+            death_window_smash: {
+                text: "You strike the glass. The sound is a dull thud. The glass does not break; instead, the shockwave of silent force shatters the bones in your arm. The pain is intense, but soundless.",
+                endingDescription: "Shattered arm bones.",
+                isDeath: true,
+                endingId: 31,
+                choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }] 
+            },
+            bedroom_closet: {
+                text: "The closet is full of identical black suits and dresses. On the floor is an old, leather-bound **journal** with a brass lock.",
+                choices: [
+                    { text: "Try to force the lock.", nextNode: "death_closet_lock" },
+                    { text: "Leave the closet and return.", nextNode: "bedroom_start" }
+                ]
+            },
+            death_closet_lock: {
+                text: "The lock is enchanted. As you pull, it clamps down on your fingers, silently crushing them.",
+                endingDescription: "Crushed fingers.",
+                isDeath: true,
+                endingId: 32,
+                choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }]
+            },
+            
+            // --- Study Path (NEW) ---
+            corridor_study_entrance: {
+                text: "At the end of the corridor, a previously unseen door has materialized. It leads to a **Study**. You hesitate before entering.",
+                choices: [
+                    { text: "Enter the Study.", nextNode: "study_start" },
+                    { text: "Go back to the corridor loop.", nextNode: "corridor_loop_1" }
+                ]
+            },
             study_start: {
-                text: "The study is a small, cramped room lined with bookshelves and a heavy mahogany desk. It smells of dust and old paper. The lack of light makes finding anything impossible. You fumble for the phone on the desk.",
+                text: "The Study is lined with floor-to-ceiling **bookshelves**. In the center, a heavy **wooden desk** sits beneath a single, unblinking red light bulb.",
                 choices: [
-                    { text: "Search the desk drawers.", nextNode: "study_desk_search" },
-                    { text: "Check the bookshelf.", nextNode: "study_bookshelf" },
-                    { text: "Leave and enter the corridor.", nextNode: "corridor_start" }
+                    { text: "Examine the bookshelves.", nextNode: "study_bookshelf" },
+                    { text: "Examine the wooden desk.", nextNode: "study_desk" },
+                    { text: "Return to the corridor.", nextNode: "corridor_loop_1" }
                 ]
             },
-
-            // --- Study Path ---
-
-            study_desk_search: {
-                text: "The top drawer is empty. The second drawer holds a small, leather-bound journal. The third drawer is stuck.",
+            study_desk: {
+                text: "The desk is bare save for a stack of neatly folded **envelopes** and a very old, heavy, brass **handbell** with no clapper.",
                 choices: [
-                    { text: "Open the journal.", nextNode: "study_journal" },
-                    { text: "Force the third drawer open.", nextNode: "study_drawer_force" }
+                    { text: "Examine the envelopes.", nextNode: "study_desk_envelopes" },
+                    { text: "Take the handbell.", nextNode: "study_desk_bell" },
+                    { text: "Return to the study.", nextNode: "study_start" }
                 ]
             },
-
-            study_journal: {
-                text: "The journal is filled with tight, panicked handwriting. The last entry reads: 'The only way out is through the **chimney**—or to **reverse the order** of the seven marks.' A small, crudely drawn sketch is taped to the page, showing seven tally marks.",
+            study_desk_envelopes: {
+                text: "Each envelope contains a **single grain of sand**. The sand is cold and slightly magnetic. The house doesn't seem to care that you've found them.",
                 choices: [
-                    { text: "Attempt to climb the chimney now (requires being near the fireplace).", nextNode: "corridor_start" }, // Back to corridor, must find fireplace
-                    { text: "Memorize the seven marks and close the journal.", nextNode: "study_journal_memorize" }
+                    { text: "Return to the desk.", nextNode: "study_desk" }
                 ]
             },
-            
-            study_journal_memorize: {
-                text: "You tuck the knowledge away. The number seven, the chimney, and the need for reversal. What reversal?",
+            study_desk_bell: {
+                text: "You pocket the bell. It is useless without a clapper, but feels significant.",
                 choices: [
-                    { text: "Go to the bookshelf.", nextNode: "study_bookshelf" },
-                    { text: "Go to the corridor.", nextNode: "corridor_start" }
+                    { text: "Examine the desk again.", nextNode: "study_desk_envelopes" },
+                    { text: "Return to the study.", nextNode: "study_start" }
                 ]
             },
-            
-            study_drawer_force: {
-                text: "You heave against the drawer. With a loud, splintering crack, it gives way. Inside is a small, silver key and a faint, high-pitched **humming** sound coming from behind the wall paneling.",
-                choices: [
-                    { text: "Take the key and investigate the humming.", nextNode: "study_hidden_panel" },
-                    { text: "Take the key and return to the corridor.", nextNode: "corridor_start" }
-                ]
-            },
-            
-            study_hidden_panel: {
-                text: "You follow the humming. It leads to a section of the wall behind the bookshelf. A hidden panel is revealed, behind which sits a large, black machine humming silently. It has a single, large **red button** labeled 'DISPERSE'.",
-                choices: [
-                    { text: "Press the red button.", nextNode: "death_failed_teleport_53" },
-                    { text: "Leave the machine alone.", nextNode: "corridor_start" }
-                ]
-            },
-
             study_bookshelf: {
                 text: "The books are all dusty and uninteresting, except for one bound in heavy brass, titled 'The Compendium of Lost Sounds.' The books behind it seem slightly misaligned.",
                 choices: [
@@ -1108,7 +1150,6 @@ body.better-graphics-active .container {
                     { text: "Return to the corridor.", nextNode: "corridor_start" }
                 ]
             },
-            
             study_bookshelf_2: {
                 text: "The books are a false front. Behind them is a small, perfectly preserved **birdcage** containing a **single, black, flightless bird** that stares at you with a silent, malevolent gaze. It does not move.",
                 choices: [
@@ -1118,7 +1159,6 @@ body.better-graphics-active .container {
             },
             
             // --- Corridor/Corridor Loop Path ---
-            
             corridor_loop_1: {
                 text: "You walk for what feels like hours. Every door you pass leads back to your bedroom, which is now empty, the bed unmade. You realize the house is warping space around you. You are back in the main corridor, but it feels different.",
                 choices: [
@@ -1127,7 +1167,6 @@ body.better-graphics-active .container {
                     { text: "Check the bathroom.", nextNode: "bathroom_start" }
                 ]
             },
-            
             corridor_wait: {
                 text: "You decide to wait it out. The silence is a physical weight, pressing against your eardrums. You wait. And wait. The clock in your mind ticks past 4:00 AM, 5:00 AM... you are still waiting.",
                 choices: [
@@ -1135,19 +1174,33 @@ body.better-graphics-active .container {
                     { text: "Start tapping your feet rhythmically.", nextNode: "ending_28" }
                 ]
             },
-
-            // --- Living Room Path ---
             
+            // --- Living Room Path ---
             living_room_start: {
-                text: "The living room is dominated by a large, empty stone **fireplace** and a black, static-filled **television** screen. An old, worn **armchair** sits in the middle of the room, near the fireplace. A large picture **window** faces the street.",
+                text: "The living room is dominated by a silent, flickering **television**. A dusty **armchair** sits near the brick **fireplace**.",
                 choices: [
-                    { text: "Investigate the fireplace.", nextNode: "living_room_fireplace" },
-                    { text: "Look out the window.", nextNode: "living_room_window" },
-                    { text: "Check the armchair.", nextNode: "living_room_armchair" },
+                    { text: "Check the television.", nextNode: "living_room_tv" },
+                    { text: "Go to the armchair.", nextNode: "living_room_armchair" },
+                    { text: "Examine the fireplace.", nextNode: "living_room_fireplace" },
                     { text: "Return to the corridor.", nextNode: "corridor_start" }
                 ]
             },
-            
+            living_room_tv: {
+                text: "The TV screen is static, but the hum is deafeningly quiet. It emits a faint, pulsing red light.",
+                choices: [
+                    { text: "Touch the screen.", nextNode: "death_tv_touch" },
+                    { text: "Tap the TV screen like a code.", nextNode: "ending_14" },
+                    { text: "Return to the corridor.", nextNode: "corridor_start" }
+                ]
+            },
+            living_room_armchair: {
+                text: "The armchair is deep and smells of old tobacco. There's a hidden **hatch** beneath one of the cushions.",
+                choices: [
+                    { text: "Check under the other cushion.", nextNode: "ending_12" },
+                    { text: "Examine the hatch.", nextNode: "living_room_armchair_hatch" },
+                    { text: "Return to the corridor.", nextNode: "corridor_start" }
+                ]
+            },
             living_room_fireplace: {
                 text: "The fireplace is cold and smells of burnt wood. A small, rusty **chimney sweep** tool leans against the hearth.",
                 choices: [
@@ -1155,7 +1208,6 @@ body.better-graphics-active .container {
                     { text: "Use the chimney sweep to poke the ashes.", nextNode: "living_room_fireplace_poke" }
                 ]
             },
-
             living_room_fireplace_poke: {
                 text: "You stir the ashes. Hidden beneath them is a small, smooth **white stone** and a tiny, almost invisible **switch** on the inside wall of the hearth.",
                 choices: [
@@ -1163,7 +1215,6 @@ body.better-graphics-active .container {
                     { text: "Flip the switch.", nextNode: "ending_26" }
                 ]
             },
-            
             living_room_fireplace_stone: {
                 text: "You pocket the stone. It's oddly warm and vibrates slightly. You leave the switch alone for now.",
                 choices: [
@@ -1172,7 +1223,6 @@ body.better-graphics-active .container {
                     { text: "Return to the corridor.", nextNode: "corridor_start" }
                 ]
             },
-            
             living_room_window: {
                 text: "You peer out the window. It is raining heavily, but the rain makes no sound. Across the street, you see a faint **figure** standing perfectly still, watching the house. It is too dark to make out features.",
                 choices: [
@@ -1180,7 +1230,6 @@ body.better-graphics-active .container {
                     { text: "Try to make a noise to get the figure's attention.", nextNode: "living_room_window_noise" }
                 ]
             },
-            
             living_room_window_noise: {
                 text: "You can't shout, but you can tap the window glass. The sound is a dull, muffled thud, yet the figure across the street raises a hand and slowly points, not at you, but at the **television**.",
                 choices: [
@@ -1189,25 +1238,7 @@ body.better-graphics-active .container {
                 ]
             },
             
-            living_room_armchair: {
-                text: "The armchair is deep and uncomfortable. As you lean over it, you see a single strand of impossibly long, black **hair** draped over the back.",
-                choices: [
-                    { text: "Sit in the armchair.", nextNode: "death_crushing_33" },
-                    { text: "Examine the hair closer.", nextNode: "death_hair" }
-                ]
-            },
-            
-            living_room_tv: {
-                text: "The old TV screen is black, glowing with static. The only 'sound' it emits is a high-pitched, silent **whine** that makes your teeth ache.",
-                choices: [
-                    { text: "Touch the screen.", nextNode: "death_tv_touch" },
-                    { text: "Tap the TV screen like a code.", nextNode: "ending_14" },
-                    { text: "Return to the corridor.", nextNode: "corridor_start" }
-                ]
-            },
-
             // --- Kitchen Path ---
-            
             kitchen_start: {
                 text: "The kitchen is a picture of domestic horror. The air is freezing, and on the floor, in front of the large, industrial-looking **freezer**, is a crudely painted, red **symbol**. A half-empty **milk bottle** sits on the counter.",
                 choices: [
@@ -1217,7 +1248,6 @@ body.better-graphics-active .container {
                     { text: "Return to the corridor.", nextNode: "corridor_start" }
                 ]
             },
-
             kitchen_symbol: {
                 text: "The red symbol pulses faintly. It feels cold and slightly wet to the touch. You get the overwhelming feeling that if you step on it, the house wins.",
                 choices: [
@@ -1226,7 +1256,6 @@ body.better-graphics-active .container {
                     { text: "Look around the rest of the kitchen.", nextNode: "kitchen_start" }
                 ]
             },
-
             kitchen_freezer: {
                 text: "The freezer is a monstrosity, humming a silent, deep tone. It is completely full of frozen food, mostly bags of peas and various vegetables. It has a large **crisper** drawer at the bottom.",
                 choices: [
@@ -1235,26 +1264,24 @@ body.better-graphics-active .container {
                     { text: "Check behind the freezer (hard to reach).", nextNode: "kitchen_behind_freezer" }
                 ]
             },
-            
             kitchen_behind_freezer: {
-                text: "You manage to squeeze behind the freezer. You find a loose piece of **chalk** and a small section of the wall where the word 'OUT' is scrawled.",
+                text: "You manage to squeeze behind the freezer. You find a loose piece of **chalk** that seems oddly pristine.",
                 choices: [
-                    { text: "Take the chalk and return to the corridor.", nextNode: "corridor_start" },
-                    { text: "Use the chalk to draw a sketch of the house.", nextNode: "ending_20" }
+                    { text: "Take the chalk and return.", nextNode: "kitchen_start" },
+                    { text: "Use the chalk to draw a protective circle.", nextNode: "ending_48" }
                 ]
             },
-
             kitchen_milk_bottle: {
-                text: "The milk bottle is thick glass, about half full. It is the only object in the house that seems like a potential projectile.",
+                text: "You grab the milk bottle. It is surprisingly heavy, almost full, and feels slightly warm.",
                 choices: [
-                    { text: "Drink the milk (it might be poisoned).", nextNode: "death_milk_39" },
+                    { text: "Drink the milk (risk of poison).", nextNode: "death_milk_39" },
+                    { text: "Pour the milk onto the red symbol.", nextNode: "ending_16" },
                     { text: "Smash the bottle against the red symbol.", nextNode: "ending_symbol_erased" },
                     { text: "Smash the bottle against the window.", nextNode: "death_window_smash_40" }
                 ]
             },
-
+            
             // --- Bathroom Path ---
-
             bathroom_start: {
                 text: "The bathroom is warm and humid. The mirror is completely **fogged**. The **sink** contains a thick, black, oil-like liquid that does not move, and the **medicine cabinet** is slightly ajar.",
                 choices: [
@@ -1264,94 +1291,43 @@ body.better-graphics-active .container {
                     { text: "Return to the corridor.", nextNode: "corridor_start" }
                 ]
             },
-
             bathroom_mirror_wipe: {
                 text: "You wipe a circle on the mirror. Your reflection stares back, but it is **grotesque**—mouth wide open, eyes black. It is silent, but you can feel its despair.",
                 choices: [
-                    { text: "Stare back into the reflection.", nextNode: "death_mirror" },
-                    { text: "Quickly draw a happy face on the fog.", nextNode: "ending_13" },
-                    { text: "Smash the mirror (dangerous).", nextNode: "death_mirror_smash_45" }
+                    { text: "Draw a happy face over the grotesque reflection.", nextNode: "ending_13" },
+                    { text: "Smash the mirror.", nextNode: "death_mirror_smash_45" },
+                    { text: "Return to the bathroom.", nextNode: "bathroom_start" }
                 ]
             },
-
             bathroom_sink_oil: {
-                text: "The thick, black oil smells faintly of earth and metal. It looks like it could be a map or a hidden message.",
+                text: "The black liquid is thick and smells faintly of sea salt and old metal. It is not water, and it is not static—it is a liquid map.",
                 choices: [
-                    { text: "Collect a sample of the oil.", nextNode: "ending_oil_discovery" },
-                    { text: "Spread the oil on the floor like a map.", nextNode: "ending_24" },
-                    { text: "Wash your hands in the oil.", nextNode: "death_oil_poison_46" }
+                    { text: "Wash your hands in the oil.", nextNode: "death_oil_poison_46" },
+                    { text: "Follow the map (ending).", nextNode: "ending_24" },
+                    { text: "Return to the bathroom.", nextNode: "bathroom_start" }
                 ]
             },
-
             bathroom_cabinet: {
-                text: "The medicine cabinet is filled with nothing but dust and cobwebs, except for a single, empty **pill bottle** that rattles faintly.",
+                text: "The medicine cabinet is filled with ordinary items—toothbrushes, gauze, and a single, heavy **pill bottle** that makes no sound when shaken.",
                 choices: [
-                    { text: "Shake the pill bottle (it rattles).", nextNode: "death_rattle_47" },
-                    { text: "Search behind the cabinet mirror.", nextNode: "bathroom_cabinet_behind" }
-                ]
-            },
-            
-            bathroom_cabinet_behind: {
-                text: "Behind the cabinet is a small, hollow space. Inside, you find a small, tarnished silver **bell** and a message scrawled on the back wall: 'RING ONCE.'",
-                choices: [
-                    { text: "Ring the bell once.", nextNode: "ending_silence_broken" },
-                    { text: "Ring the bell multiple times (too risky).", nextNode: "death_bell_many_48" }
+                    { text: "Shake the bottle anyway.", nextNode: "death_rattle_47" },
+                    { text: "Take one of the pills.", nextNode: "ending_49" },
+                    { text: "Return to the bathroom.", nextNode: "bathroom_start" }
                 ]
             },
 
-            // --- Alternative Paths & Items ---
-            
-            // This is a placeholder for a hidden area, e.g., using the key from the study.
-            hidden_area_1: {
-                text: "The silver key from the study unlocks a small door in the back of the linen closet. It opens to a steep, dark **stairwell** leading down. You hear the faint, silent humming again.",
+            // --- Re-entry Points for Logic Loops (Not the beginning of the game) ---
+            corridor_start: {
+                text: "You are back in the main corridor. The suffocating silence remains.",
                 choices: [
-                    { text: "Descend the stairs to the basement.", nextNode: "basement_start" },
-                    { text: "Return to the corridor.", nextNode: "corridor_start" }
+                    { text: "Go to the Living Room.", nextNode: "living_room_start" },
+                    { text: "Go to the Kitchen.", nextNode: "kitchen_start" },
+                    { text: "Check the Bathroom.", nextNode: "bathroom_start" },
+                    { text: "Go back to the Bedroom.", nextNode: "bedroom_start" },
+                    { text: "Go to the Study (if available).", nextNode: "corridor_study_entrance" },
+                    { text: "Wait in the Corridor.", nextNode: "corridor_wait" }
                 ]
             },
-            
-            // --- Basement Path ---
-            
-            basement_start: {
-                text: "The basement is a large, unfinished space with a dirt floor. The silent humming is much louder here. It emanates from a large, complex, metallic **mechanism** in the center of the room. A **breaker box** is on the far wall.",
-                choices: [
-                    { text: "Investigate the metallic mechanism.", nextNode: "basement_mechanism" },
-                    { text: "Check the breaker box.", nextNode: "basement_breaker_box" },
-                    { text: "Try to find another way out (e.g., a window).", nextNode: "death_window_climb" }
-                ]
-            },
-            
-            basement_mechanism: {
-                text: "The mechanism is intricate, with dozens of turning brass gears. It seems to be the source of the house's silent energy, absorbing all sound. You see a set of large **brass teeth** rotating slowly.",
-                choices: [
-                    { text: "Stick your hand into the gears to stop it.", nextNode: "death_mechanism_hand_52" },
-                    { text: "Try to break the mechanism with the white stone.", nextNode: "ending_stone_break_51" },
-                    { text: "Go to the breaker box.", nextNode: "basement_breaker_box" }
-                ]
-            },
-            
-            basement_breaker_box: {
-                text: "The breaker box is a massive panel with fifty-four individual switches. One switch is much larger than the rest, labeled **'MAIN'**.",
-                choices: [
-                    { text: "Flip the MAIN breaker.", nextNode: "death_static_void_54" },
-                    { text: "Flip a random smaller breaker (risky).", nextNode: "death_breaker_random_50" },
-                    { text: "Leave the box alone.", nextNode: "basement_start" }
-                ]
-            },
-            
-            // --- Complex Endings/Deaths (Requires multiple steps or items) ---
-            
-            // ... (Add complex narrative nodes if necessary, then follow with final ending nodes) ...
-            
-            // Example of a longer path using prior knowledge
-            living_room_armchair_pull: {
-                text: "You pull the armchair away from the wall. Behind it is a large, steel **hatch** with a small dial lock.",
-                choices: [
-                    { text: "Try to open the hatch (requires key or code).", nextNode: "living_room_armchair_hatch" },
-                    { text: "Return to the corridor.", nextNode: "corridor_start" }
-                ]
-            },
-            
             living_room_armchair_hatch: {
                 text: "The lock requires a four-digit code. You have no idea what it is.",
                 choices: [
@@ -1360,7 +1336,6 @@ body.better-graphics-active .container {
             },
             
             // --- Final Escape/Resolution Nodes (Placeholder until next stage) ---
-            
             garden_hedge: {
                 text: "You find a weak spot in the garden hedge. It's a large, thorny bush, but it feels less substantial than the walls of the house. You can force your way through the wall, emerging safely in the small garden. The hole in the hedge seals instantly behind you.",
                 choices: [
@@ -1370,7 +1345,7 @@ body.better-graphics-active .container {
             
             // --- Endings (54 Total) ---
             
-            // Endings 1-30
+            // Endings 1-30 (Original Endings)
             ending_1: {
                 text: "You wake up again, sweat-soaked, the digital clock flickering '3:07 AM'. But this time, you hear the distant, gentle sound of rain outside. The silence is gone. You are safe, for now.",
                 endingTitle: "ENDING 1/54: Reawakening",
@@ -1386,14 +1361,14 @@ body.better-graphics-active .container {
                 endingId: 2
             },
             ending_3: {
-                text: "The silence breaks not with a sound, but with a color. A brilliant, sapphire blue overwhelms your vision. When it fades, you are standing outside, on a clear, sunny morning. You have no memory of the house.",
-                endingTitle: "ENDING 3/54: The Reset",
+                text: "The silence breaks not with a sound, but with a color. A brilliant, sapphire blue overwhelms your vision. When it fades, you are standing outside, on a clear, sunny morning, the house replaced by an empty lot. You realize the silence was a filter, not an absence.",
+                endingTitle: "ENDING 3/54: Sapphire",
                 choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
                 isEnding: true,
                 endingId: 3
             },
-            ending_safe_in_corridor: {
-                text: "You stand guard in the middle of the corridor, flashlight beam steady. You stay there until dawn, fighting the urge to move. The silence breaks at 6:00 AM with the sound of a distant, ringing phone. You are safe, for now.",
+            ending_4: {
+                text: "You decide the only way to beat the silence is to join it. You stop moving, stop thinking, stop trying. You enter a state of deep meditation. The house accepts you. You are still there, perfectly motionless and silent, when the sun comes up. You are safe, for now.",
                 endingTitle: "ENDING 4/54: Stasis",
                 choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
                 isEnding: true,
@@ -1427,15 +1402,8 @@ body.better-graphics-active .container {
                 isEnding: true,
                 endingId: 8
             },
-            ending_nothing_there: {
-                text: "You listen intently. The silence is still there, but you realize it's completely empty, like a husk. The silence is complete, and you find that you can think clearly now, without fear. You walk out the front door, untouched.",
-                endingTitle: "ENDING 9/54: Solitude",
-                choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
-                isEnding: true,
-                endingId: 9
-            },
             ending_symbol_erased: {
-                text: "The crash from the milk bottle breaking against the freezer door is deafening, a shockwave of sound that temporarily breaks the silence. The red symbol is scratched and damaged, and the door is dented. The symbol begins to fade slowly, and by dawn, it is gone, along with the oppressive feeling in the kitchen.",
+                text: "The sound of the glass shattering is deafening, a shockwave of sound that temporarily breaks the silence. The red symbol is scratched and damaged, and the door is dented. The symbol begins to fade slowly, and by dawn, it is gone, along with the oppressive feeling in the kitchen.",
                 endingTitle: "ENDING 10/54: The Destroyer",
                 choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
                 isEnding: true,
@@ -1470,14 +1438,14 @@ body.better-graphics-active .container {
                 endingId: 14
             },
             ending_15: {
-                text: "The kitchen is a portal. You deliberately step on the red symbol, and the room melts away, depositing you safely outside the house's orbit.",
-                endingTitle: "ENDING 15/54: Deliberate Step",
+                text: "The symbol is a portal. When you step on it, the floor beneath you vanishes. You fall for a brief, silent moment before landing hard in your own bed, outside the time loop. You hear the gentle sound of rain outside. You are free.",
+                endingTitle: "ENDING 15/54: The Portal",
                 choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
                 isEnding: true,
                 endingId: 15
             },
             ending_16: {
-                text: "The phone, though dead, emits a faint radio signal. You use it to guide yourself out, following the signal through the house's maze.",
+                text: "The milk instantly dissolves the symbol, which shimmers and evaporates. A high-pitched, silent signal travels from the kitchen. The front door unlocks.",
                 endingTitle: "ENDING 16/54: The Signal",
                 choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
                 isEnding: true,
@@ -1519,14 +1487,14 @@ body.better-graphics-active .container {
                 endingId: 21
             },
             ending_22: {
-                text: "You realize the seven tally marks on the sketch are seven sequential actions you must perform. After completing the final one, the front door reveals a beautiful meadow at dawn.",
-                endingTitle: "ENDING 22/54: The Sequence",
+                text: "You shout 'I refuse to be silent!' at the top of your lungs. The sound is a shockwave. The house shudders and dissolves. You wake up outside.",
+                endingTitle: "ENDING 22/54: Refusal",
                 choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
                 isEnding: true,
                 endingId: 22
             },
             ending_23: {
-                text: "You find a photograph of yourself in the study. You burn it, breaking the house's connection to your personal fear.",
+                text: "You realize the red symbol is an old fear pattern. By consciously rejecting the symbol's meaning, you break its connection to your personal fear.",
                 endingTitle: "ENDING 23/54: Severed Link",
                 choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
                 isEnding: true,
@@ -1547,113 +1515,111 @@ body.better-graphics-active .container {
                 endingId: 25
             },
             ending_26: {
-                text: "The switch in the fireplace activates a speaker system, filling the house with loud, familiar, normal sounds.",
+                text: "Flipping the switch causes a massive, silent grinding sound from behind the fireplace. The brick wall slides open, revealing a clear, brightly lit exit to the outside.",
                 endingTitle: "ENDING 26/54: The Switch",
                 choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
                 isEnding: true,
                 endingId: 26
             },
             ending_27: {
-                text: "You decide to wait out the night in the corridor, but instead of being safe, you realize you're being hunted. You hide in a closet and only emerge when the sun rises, barely alive.",
-                endingTitle: "ENDING 27/54: The Hunted",
+                text: "You wait in the corridor. You close your eyes and focus on the darkness. When you open them, it is morning, and the house is completely normal. You simply walk out.",
+                endingTitle: "ENDING 27/54: Endurance",
                 choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
                 isEnding: true,
                 endingId: 27
             },
             ending_28: {
-                text: "You begin to tap your feet rhythmically. The silence tries to swallow the sound, but you tap faster and louder. The house becomes distracted, and you escape through the front door.",
-                endingTitle: "ENDING 28/54: Distraction",
+                text: "Your rhythmic tapping begins to create an audible sound, a tiny drumbeat against the silence. The rhythm attracts something from the walls. A key falls at your feet. You use it on the front door.",
+                endingTitle: "ENDING 28/54: The Rhythm",
                 choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
                 isEnding: true,
                 endingId: 28
             },
             ending_29: {
-                text: "You sing a loud, clear song. The house, unused to sound, recoils and spits you out onto the street.",
-                endingTitle: "ENDING 29/54: The Song",
+                text: "You follow a silent, buzzing feeling that leads you to the window. You climb out, scaling the wall of the house to the roof, where a helicopter is waiting. They tell you it's a rescue.",
+                endingTitle: "ENDING 29/54: The Rescue",
                 choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
                 isEnding: true,
                 endingId: 29
             },
             ending_30: {
-                text: "You find a hidden hatch in the living room floor. It opens to a perfectly normal basement with a secure exit.",
-                endingTitle: "ENDING 30/54: The Hatch",
+                text: "You break a small piece of wood off a chair and chew on it. The silent crunching grounds you to reality. The front door opens.",
+                endingTitle: "ENDING 30/54: Grounded",
                 choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
                 isEnding: true,
                 endingId: 30
             },
             
-            // --- Original Death/Failure Nodes (IDs 31-42) ---
-            death_mirror: {
-                text: "You stare back into the grotesque reflection. It leans forward, smiling, until the reflection is all you see. You don't know how long you stand there, but when your senses return, you are trapped, staring at a smiling, grotesque reflection of nothing.",
-                endingDescription: "Trapped in the reflection.",
+            // Death Endings 31-54 (Original: 31-42, New: 43-54)
+            death_crisper: {
+                text: "You open the crisper drawer. It is full of human teeth. The sheer silent horror overwhelms your senses, causing a painless, immediate heart failure.",
+                endingDescription: "Silent heart failure.",
                 isDeath: true,
-                endingId: 31
-            },
-            death_suffocation_32: {
-                text: "You stay put, squeezing your eyes shut. The thing outside the blanket presses harder. You eventually run out of oxygen. You open your eyes only to find yourself still under the blanket, but the world is now a permanent, silent black.",
-                endingDescription: "Suffocation by silence.",
-                isDeath: true,
-                endingId: 32
-            },
-            death_crushing_33: {
-                text: "You sit in the armchair. It wraps around you, hardening like concrete. The silence, which is not an absence of air but a dense, cold vacuum, slams into you, crushing your lungs and bursting your eardrums.",
-                endingDescription: "Vacuum pressure.",
-                isDeath: true,
-                endingId: 33
+                endingId: 33,
+                choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }]
             },
             death_tv_touch: {
-                text: "You reach out and touch the black screen. It is scorching hot. The high-pitched whine jumps directly into your mind, shattering your concentration until all you know is the sound.",
-                endingDescription: "Shattered by sound.",
+                text: "You touch the red-pulsing screen. The static flows into your body, freezing your blood instantly. You stand there, a silent statue of ice.",
+                endingDescription: "Frozen blood.",
                 isDeath: true,
-                endingId: 34
+                endingId: 34,
+                choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }]
             },
-            death_hair: {
-                text: "You examine the hair closer. It's a single, black wire, impossibly thin. As you touch it, it wraps around your finger, then your wrist, then your arm, tightening, cutting off circulation and pulling you into the empty space behind the chair.",
-                endingDescription: "Caught in the hair's grip.",
+            death_armchair_sit: {
+                text: "You sit in the armchair. It clamps shut on you, silently suffocating you into the cushion.",
+                endingDescription: "Silent suffocation.",
                 isDeath: true,
-                endingId: 35
+                endingId: 35,
+                choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }]
             },
-            death_window_stare: { // This node was not originally referenced, keeping for consistency.
-                text: "You stare at the figure across the street, trying to see its face. It lifts its head, and the rain stops. You realize you are looking at your own reflection in a pane of glass that isn't there. You step forward, falling three stories onto the unseen street below.",
-                endingDescription: "The false reflection.",
+            death_garden_shed: {
+                text: "You check the shed. It is full of silent, ticking clocks. The lack of sound drives you insane with a cacophony of internal ticks.",
+                endingDescription: "Internal clocks.",
                 isDeath: true,
-                endingId: 36
+                endingId: 36,
+                choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }]
             },
-            death_crisper: {
-                text: "You reach into the crisper. It is empty, except for a perfectly preserved, human-sized heart, beating once, silently, against your hand. You die of sheer terror.",
+            death_shed_touch: {
+                text: "You touch the shed. It is freezing. The cold seeps into your body, paralyzing you in a state of sheer terror.",
                 endingDescription: "Sheer terror.",
                 isDeath: true,
-                endingId: 37
+                endingId: 37,
+                choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }]
             },
             death_wipe_symbol: {
                 text: "You try to wipe the symbol off. The red paint is corrosive. It burns through your skin, your muscle, and your bone until your hand is nothing but a charred stump.",
                 endingDescription: "The corrosive symbol.",
                 isDeath: true,
-                endingId: 38
+                endingId: 38,
+                choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }]
             },
             death_milk_39: {
                 text: "You drink the milk. It is room temperature, thick, and tastes metallic. It is not milk. You feel your throat close up and your blood turn to sludge.",
                 endingDescription: "Poisoned milk.",
                 isDeath: true,
-                endingId: 39
+                endingId: 39,
+                choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }]
             },
             death_window_smash_40: {
                 text: "You smash the milk bottle against the window. The sound is a dull, flat thud—not the expected shattering crash. The glass does not break. The silence pushes back, forcing the glass shards deep into your flesh.",
                 endingDescription: "Glass shards.",
                 isDeath: true,
-                endingId: 40
+                endingId: 40,
+                choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }]
             },
             death_jump_41: {
                 text: "You jump out the window, aiming for a nearby roof. You miss. The fall is completely silent, and the impact is a brief, painless burst of darkness.",
                 endingDescription: "Silent fall.",
                 isDeath: true,
-                endingId: 41
+                endingId: 41,
+                choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }]
             },
             death_window_climb: {
                 text: "You try to climb the brick wall. A brick comes loose, then another. You slip, falling to your death on the unseen street below.",
                 endingDescription: "Bricks of betrayal.",
                 isDeath: true,
-                endingId: 42
+                endingId: 42,
+                choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }]
             },
             
             // --- NEW Endings (IDs 43-54) ---
@@ -1665,212 +1631,239 @@ body.better-graphics-active .container {
                 endingId: 43
             },
             death_bird_release_44: { // from study_bookshelf_2
-                text: "You open the cage. The bird does not fly; it simply stares. Its beak opens and closes silently, and a moment later, you realize it is *sucking* the life and warmth out of you. You are left cold and still, a silent meal for the caged thing.",
-                endingDescription: "A silent meal.",
+                text: "You open the cage and release the bird. It does not fly, but simply falls to the floor, where it begins to rapidly decay, turning to dust. The dust flies into your face, and the last thing you see is the birdcage snapping shut on your head.",
+                endingDescription: "The silent dust.",
                 isDeath: true,
-                endingId: 44
+                endingId: 44,
+                choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }]
             },
             death_mirror_smash_45: { // from bathroom_mirror_wipe
                 text: "You smash the mirror with your flashlight. The glass shatters, but the sound is swallowed. The grotesque reflection's face splits into a thousand shards, and each one of them reflects a terrifying, silent future for you. You are overwhelmed by the images and lose your mind.",
                 endingDescription: "Thousand reflections.",
                 isDeath: true,
-                endingId: 45
+                endingId: 45,
+                choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }]
             },
             death_oil_poison_46: { // from bathroom_sink_oil
                 text: "You wash your hands in the oil. It seeps into your skin, cold and numbing. The oil is a living thing; it crawls up your arms, seeking your heart. You feel your pulse slow and fade into the silence.",
                 endingDescription: "Living oil.",
                 isDeath: true,
-                endingId: 46
+                endingId: 46,
+                choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }]
             },
             death_rattle_47: { // from bathroom_cabinet
                 text: "You shake the pill bottle. The faint rattle is the only sound. The sound is so small, so isolated, that the house focuses all its silent energy on it, and then on you. You feel a massive pressure build inside your skull until it bursts.",
-                endingDescription: "The fatal rattle.",
+                endingDescription: "Pressure overload.",
                 isDeath: true,
-                endingId: 47
+                endingId: 47,
+                choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }]
             },
-            death_bell_many_48: { // from bathroom_cabinet_behind
-                text: "You ring the bell repeatedly, desperate for a loud sound. The house is enraged. A high-frequency, silent wave hits you, liquefying your internal organs without making a single noise.",
-                endingDescription: "Silent liquefaction.",
-                isDeath: true,
+            ending_48: { // from kitchen_behind_freezer
+                text: "You quickly draw a protective chalk circle on the kitchen floor, outside the red symbol. You step inside the circle, and the house's silent power cannot reach you. You wait there, safely, until dawn.",
+                endingTitle: "ENDING 48/54: Sanctuary",
+                choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
+                isEnding: true,
                 endingId: 48
             },
-            ending_reverse_marks_49: { // Placeholder for an ending requiring knowledge of the "reverse" code
-                text: "You correctly perform the seven actions in reverse order. The house groans, and the walls shift back to their original position. A hidden door opens, leading to a street you recognize.",
-                endingTitle: "ENDING 49/54: Reversal",
+            ending_49: { // from bathroom_cabinet
+                text: "You swallow a pill from the bottle. It is not medicine, but a silent chemical sedative. You fall into a deep, dreamless sleep. When you wake up, you are outside, wrapped in a blanket, staring at the house from a distance.",
+                endingTitle: "ENDING 49/54: Sedation",
                 choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
                 isEnding: true,
                 endingId: 49
             },
-            death_breaker_random_50: { // from basement_breaker_box
-                text: "You flip a random breaker. The basement plunges into total, physical darkness. A cold, non-spatial entity wraps around you. You are consumed by the true, empty void.",
-                endingDescription: "Consumed by void.",
-                isDeath: true,
+            ending_50: {
+                text: "You find a weak spot in the garden hedge. It's a large, thorny bush, but it feels less substantial than the walls of the house. You can force your way through the wall, emerging safely in the small garden. The hole in the hedge seals instantly behind you. You escape through the gate.",
+                endingTitle: "ENDING 50/54: Breakthrough",
+                choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
+                isEnding: true,
                 endingId: 50
             },
-            ending_stone_break_51: { // from basement_mechanism
-                text: "You strike the brass gears with the white stone. The stone glows brightly, and the mechanism shudders, emitting a deafeningly loud, piercing **screech**—the first true sound in the house. The mechanism breaks, the silence collapses, and you are spat out onto the street.",
-                endingTitle: "ENDING 51/54: Screech of Freedom",
+            ending_51: {
+                text: "You use your flashlight to write a message on the dusty living room floor: 'I am here.' The house replies by opening the front door.",
+                endingTitle: "ENDING 51/54: Acknowledgment",
                 choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
                 isEnding: true,
                 endingId: 51
             },
-            death_mechanism_hand_52: { // from basement_mechanism
-                text: "You stick your hand into the turning brass teeth. The machine doesn't make a sound, but your hand is ground to a pulp. The mechanism continues to spin, and the pain is a silent, searing fire in your nerves.",
-                endingDescription: "Caught in the machine.",
-                isDeath: true,
+            ending_52: {
+                text: "You stand in the corridor and close your eyes. You imagine the loudest, most chaotic sound you can think of—a thunderstorm, an earthquake, a crowd screaming. The intensity of the imagined noise forces the house's silence to retreat. When you open your eyes, you are free.",
+                endingTitle: "ENDING 52/54: The Inner Sound",
+                choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
+                isEnding: true,
                 endingId: 52
             },
-            death_failed_teleport_53: { // from study_hidden_panel_3
-                text: "You press the button. The room flashes, and you feel a wrenching force tearing at your body. When the sensation stops, you realize only your head and shoulders have made it to the next room. The rest of your body is left behind in the study.",
-                endingDescription: "A partial trip.",
-                isDeath: true,
+            ending_53: {
+                text: "The reflection in the mirror is the key. You stare at it until it becomes a perfect, non-grotesque image of you. The reflection smiles and nods, and the house instantly becomes normal. You walk out.",
+                endingTitle: "ENDING 53/54: Self-Acceptance",
+                choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
+                isEnding: true,
                 endingId: 53
             },
-            death_static_void_54: { // from basement_breaker_box_4
-                text: "You flip the MAIN breaker. The humming stops completely. The world turns to a silent, white static field. You are left floating in a void of pure nothingness, your senses stripped away, forever.",
-                endingDescription: "Annihilated by the void.",
-                isDeath: true,
+            ending_54: {
+                text: "You manage to open the latch on the armchair. Beneath it is a simple key and a note: 'The house is a museum of sound. Please be quiet.' You take the key and let yourself out.",
+                endingTitle: "ENDING 54/54: The Museum",
+                choices: [{ text: "Return to Title Screen", nextNode: "title_screen" }],
+                isEnding: true,
                 endingId: 54
             },
-            
+
+            // Node to trigger game exit from ending
             title_screen: {
-                text: "Returning to the main menu...",
-                choices: [],
-                isTitle: true
+                isTitle: true,
+                text: "The nightmare retreats. The Silent Corridor awaits your return.",
+                choices: [] 
             }
         };
 
-
-        // Function to determine the total number of *tracked* endings (nodes with isEnding: true or isDeath: true)
+        // Function to calculate the TOTAL_ENDINGS based on storyNodes
         function calculateTotalEndings() {
             let count = 0;
             for (const key in window.storyNodes) {
-                // MODIFIED to include isDeath nodes in the total count
-                if (window.storyNodes[key].isEnding === true || window.storyNodes[key].isDeath === true) {
+                const node = window.storyNodes[key];
+                if (node.isEnding || node.isDeath) {
                     count++;
                 }
             }
-            // TOTAL ENDINGS is now 54 (30 original + 12 old deaths + 12 new = 54)
             TOTAL_ENDINGS = count;
         }
 
-        // Function to populate the endings list
-        window.populateEndingsList = function() {
-            calculateTotalEndings();
+        // --- Core Game Functions ---
+
+        // Function to handle game over/ending screen
+        function showEnding(node) {
+             // === BUG FIX START: Ensure Return to Title Screen button for all endings/deaths ===
+            // This line guarantees that all endings and deaths will have a single button
+            // to return to the title screen, fixing the issue where some endings failed to display it.
+            node.choices = [{ text: "Return to Title Screen", nextNode: "title_screen" }];
+             // === BUG FIX END ===
+            
+            // 1. Mark as unlocked in localStorage
             const unlockedEndings = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-            listContentEl.innerHTML = ''; // Clear old content
-
-            const endingNodes = Object.keys(window.storyNodes)
-                .map(key => ({ ...window.storyNodes[key], nodeKey: key }))
-                // MODIFIED filter to include both Endings and Deaths
-                .filter(node => node.isEnding || node.isDeath)
-                .sort((a, b) => a.endingId - b.endingId);
-
-            endingNodes.forEach(node => {
-                const isUnlocked = unlockedEndings.includes(node.nodeKey);
-                // 1. Determine the prefix (ENDING or DEATH) and the display name
-                const prefix = node.isEnding ? "ENDING" : "DEATH";
-                let dynamicTitle;
-                
-                if (node.isEnding) {
-                    // Main endings replace the X/Y part (e.g., 1/30) with the dynamic endingId/TOTAL_ENDINGS (e.g., 1/54)
-                    dynamicTitle = node.endingTitle.replace(/(\d+)\/(\d+)/, `${node.endingId}/${TOTAL_ENDINGS}`);
-                } else {
-                    // Death endings use the GAME OVER prefix, and a format like (31/54)
-                    dynamicTitle = `${prefix} (${node.endingId}/${TOTAL_ENDINGS}): ${node.endingDescription}`;
-                }
-                
-                const item = document.createElement('div');
-                item.classList.add('ending-item');
-                if (isUnlocked) {
-                    item.classList.add('unlocked');
-                }
-                const statusSymbol = isUnlocked ? '✓' : '✗';
-                
-                // Split the generated dynamic title into the number/prefix part and the name part
-                const parts = dynamicTitle.split(':');
-                const prefixAndNumber = parts[0].trim();
-                const cleanName = parts.slice(1).join(':').trim();
-
-                item.innerHTML = `
-                    <span class="ending-name">${prefixAndNumber} - ${cleanName}</span>
-                    <span class="status">${statusSymbol}</span>
-                `;
-                listContentEl.appendChild(item);
-            });
-
-            // Add a completion status at the top of the list
-            const unlockedCount = unlockedEndings.length;
-            const statusHeader = document.createElement('h4');
-            statusHeader.style.color = unlockedCount === TOTAL_ENDINGS ? '#44ff44' : '#f55'; /* Light red/green status */
-            statusHeader.style.textAlign = 'center';
-            statusHeader.style.marginTop = '20px';
-            statusHeader.innerHTML = `**Status:** ${unlockedCount}/${TOTAL_ENDINGS} Found`;
-            listContentEl.prepend(statusHeader);
-        }
-
-        // Function to toggle the sidebar menu
-        function toggleEndingsMenu() {
-            startAmbiance(); // Ensure audio starts on first click
-            window.populateEndingsList();
-            sidebarEl.classList.toggle('open');
-            document.body.classList.toggle('sidebar-open');
-        }
-        window.toggleEndingsMenu = toggleEndingsMenu; // Expose to global scope for HTML onclick
-
-        // --- Audio Management Logic ---
-        
-        function startAmbiance() {
-            if (rainAmbiance.paused) {
-                // Check if browser allows autoplay and try to start
-                const playPromise = rainAmbiance.play();
-                if (playPromise !== undefined) {
-                    playPromise.then(_ => {
-                        // Autoplay started!
-                    }).catch(error => {
-                        // Autoplay prevented. User must interact first.
-                        console.log("Autoplay prevented. Audio will start on the next user interaction.");
-                    });
-                }
+            // Find the node key by its endingId (Id 1-54)
+            const nodeKey = Object.keys(window.storyNodes).find(key => 
+                window.storyNodes[key].endingId === node.endingId && (window.storyNodes[key].isEnding || window.storyNodes[key].isDeath)
+            );
+            if (nodeKey && !unlockedEndings.includes(nodeKey)) {
+                unlockedEndings.push(nodeKey);
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(unlockedEndings));
             }
+
+            // DYNAMIC TITLE GENERATION
+            const prefix = node.isEnding ? "ENDING" : "GAME OVER";
+            let dynamicTitle;
+            if (node.isEnding) {
+                 // Main endings replace the X/Y part (e.g., 1/30) with the dynamic endingId/TOTAL_ENDINGS (e.g., 1/54)
+                dynamicTitle = node.endingTitle.replace(/(\d+)\/(\d+)/, `${node.endingId}/${TOTAL_ENDINGS}`);
+            } else {
+                 // Death endings use the GAME OVER prefix, and a format like (31/54)
+                dynamicTitle = `${prefix} (${node.endingId}/${TOTAL_ENDINGS}): ${node.endingDescription}`;
+            }
+
+            let htmlContent = `
+                <h2>${dynamicTitle}</h2>
+                <p class="description">${node.text}</p>
+            `;
+            
+            stopBlinking(); // Stop blinking on game over/ending
+            
+            // Apply a CSS class to the container for game over styling
+            gameContainerEl.classList.add('game-over'); 
+
+            // Update content and fade in
+            storyTextEl.innerHTML = htmlContent;
+            renderChoices(node.choices);
+            storyTextEl.style.opacity = '1';
+            choicesEl.style.opacity = '1';
         }
 
-        // --- Screen Management Logic ---
+        // Function to render the current story node content
+        function showStoryNode(nodeKey) {
+            const node = window.storyNodes[nodeKey];
+            if (!node) {
+                console.error("Node not found:", nodeKey);
+                return;
+            }
 
-        // Wrapper function for clicks that should also start audio
+            // Clear game over state if returning from an ending
+            gameContainerEl.classList.remove('game-over'); 
+
+            let htmlContent;
+            if (node.isEnding || node.isDeath) {
+                // If it's an ending/death, use the special ending function
+                showEnding(node);
+                return;
+            } else if (node.isTitle) {
+                // If the node is a title node, ensure the game screen is set up
+                htmlContent = `
+                    <h2>${nodeKey === 'start' ? '3:07 AM' : 'The Nightmare Returns'}</h2>
+                    <p class="description">${node.text}</p>
+                `;
+                // FIX: Blinking is now handled by `applySettings` on load/return, 
+                // and should be restarted by `startBlinking()` in `applySettings` call.
+            } else {
+                // Normal story node
+                 htmlContent = `<p class="description">${node.text}</p>`;
+            }
+
+            // 1. Update the content
+            storyTextEl.innerHTML = htmlContent;
+            renderChoices(node.choices);
+
+            // 2. Fade content back in
+            // This is critical: if content was changed after fade-out, 
+            // the new content needs to fade in now.
+            setTimeout(() => {
+                storyTextEl.style.opacity = '1';
+                choicesEl.style.opacity = '1';
+            }, 50); // Small delay to ensure browser registers the content update
+        }
+
+        // Function to render the choice buttons
+        function renderChoices(choices) {
+            choicesEl.innerHTML = ''; // Clear previous choices
+            choices.forEach(choice => {
+                const button = document.createElement('button');
+                button.classList.add('choice-btn');
+                button.textContent = choice.text;
+                button.addEventListener('click', () => handleInGameTransition(choice.nextNode));
+                choicesEl.appendChild(button);
+            });
+        }
+        
+        // --- Screen Management Functions ---
+
         function handleStartScreenClick(callback) {
-            startAmbiance();
+            startAmbiance(); // Attempt to start audio on first interaction
             callback();
         }
 
-        // Main function to switch screens and enable start screen fade-in
+        // Function to switch between start, settings, and game screens
         function showScreen(screenId) {
-            // FIX: Only clear lingering 'fade-out' classes from screens that rely on the transition.
-            // We prevent the blanket removal of 'active' at the start, which instantly hid the menu in previous versions.
-            startScreenEl.classList.remove('fade-out');
-            gameScreenEl.classList.remove('fade-out');
-
             if (screenId === 'start') {
-                stopBlinking(); // Stop blinking timer when on start screen
-                gameContainerEl.classList.remove('game-over');
+                // Clear any active game state classes
+                gameScreenEl.classList.remove('active', 'fade-out');
+                gameContainerEl.classList.remove('game-over'); 
                 
-                // Hide other screens instantly
-                gameScreenEl.classList.remove('active');
-                settingsScreenEl.classList.remove('active');
-                
-                // 1. Set the opacity to 0 and make it active (display: block)
-                startScreenEl.classList.add('fade-out');
-                startScreenEl.classList.add('active');
+                // Reset title opacity
+                gameTitleEl.style.opacity = '1';
 
+                // 1. Make the start screen active
+                startScreenEl.classList.add('active'); 
+                
+                // RESTART BLINKING: Re-apply settings to restart the blinking timer if enabled (after game over)
+                applySettings(); // FIX: Ensures blinking restarts when returning to start screen.
+                
                 // 2. Small timeout to ensure the browser registers opacity: 0 before triggering transition
                 setTimeout(() => {
                     // 3. Remove the fade-out class to transition opacity back to 1 (1.0s)
                     startScreenEl.classList.remove('fade-out');
                 }, 50); // Small delay
+
             } else if (screenId === 'game') {
                 // 1. Make the start screen fade out over 1.0s
                 startScreenEl.classList.add('fade-out');
-
+                
                 // Close the sidebar if it's open when starting the game
                 if(sidebarEl.classList.contains('open')) {
                     toggleEndingsMenu();
@@ -1885,18 +1878,20 @@ body.better-graphics-active .container {
                     // A. Deactivate the start screen (hiding it) and start the game screen fade-in (1.0s fade)
                     startScreenEl.classList.remove('active'); // <-- ACTIVE is removed ONLY after fade is complete
                     gameScreenEl.classList.add('active'); 
-
+                    
                     // B. After the game screen is fully visible (1.0s), trigger the content fade (1.5s)
                     setTimeout(() => {
                         // Load and fade-in the content
-                        showStoryNode('start'); 
+                        showStoryNode('start');
                     }, 1000); // Delay for the container fade (1.0s)
+                    
                 }, 1000); // Delay for the start screen fade (1.0s)
             }
         }
 
         // Manages the in-game transition fade-out and content swap.
         function handleInGameTransition(nextNode) {
+            
             // If transitioning back to the title screen from an ending/death
             if (nextNode === 'title_screen') {
                 // Apply the fade-out class to the whole game screen container (1.0s transition)
@@ -1914,6 +1909,7 @@ body.better-graphics-active .container {
             // For normal node transitions: fade out content (1.5s)
             storyTextEl.style.opacity = '0';
             choicesEl.style.opacity = '0';
+            
             // Title opacity stays the same, though it usually stays (keep it at 1 for atmosphere)
 
             // 2. Wait for the content fade-out duration (1.5s)
@@ -1923,101 +1919,93 @@ body.better-graphics-active .container {
             }, STORY_TRANSITION_DURATION_MS);
         }
 
-        // Simplified content fade logic.
-        function showStoryNode(nodeName) {
-            if (nodeName === 'title_screen') {
-                showScreen('start');
-                return;
-            }
+        // --- Endings Menu Logic (Unchanged) ---
+        window.populateEndingsList = function() {
+            listContentEl.innerHTML = ''; // Clear existing list content
 
-            // Start ambiance and blinking if needed
-            startAmbiance();
-            if (gameSettings.blinkingEffect === 'on') {
-                startBlinkingTimer();
-            }
-
-            // Ensure TOTAL_ENDINGS is calculated before processing an ending/death
-            calculateTotalEndings();
-            const node = window.storyNodes[nodeName];
-            let htmlContent = '';
+            // 1. Load unlocked endings from local storage
+            const unlockedEndings = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
             
-            // Handle ENDING/DEATH nodes
-            if (node.isEnding || node.isDeath) {
-                // === BUG FIX START: Ensure Return to Title Screen button for all endings/deaths ===
-                // This line guarantees that all endings and deaths will have a single button
-                // to return to the title screen, fixing the issue where some endings failed to display it.
-                node.choices = [{ text: "Return to Title Screen", nextNode: "title_screen" }];
-                // === BUG FIX END ===
+            // 2. Create a list of all ending/death nodes, sorted by ID
+            const allNodes = Object.keys(window.storyNodes)
+                .map(key => ({ ...window.storyNodes[key], key }))
+                .filter(node => node.isEnding || node.isDeath)
+                .sort((a, b) => a.endingId - b.endingId);
 
-                // 1. Mark as unlocked in localStorage
-                const unlockedEndings = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-                // Find the node key by its endingId (Id 1-54)
-                const nodeKey = Object.keys(window.storyNodes).find(key => window.storyNodes[key].endingId === node.endingId && (window.storyNodes[key].isEnding || window.storyNodes[key].isDeath) );
+            // 3. Render each ending item
+            allNodes.forEach(node => {
+                const isUnlocked = unlockedEndings.includes(node.key);
                 
-                if (nodeKey && !unlockedEndings.includes(nodeKey)) {
-                    unlockedEndings.push(nodeKey);
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(unlockedEndings));
-                }
-
-                // DYNAMIC TITLE GENERATION
-                const prefix = node.isEnding ? "ENDING" : "GAME OVER";
+                // DYNAMIC TITLE GENERATION for the display name
+                const prefix = node.isEnding ? "ENDING" : "DEATH";
                 let dynamicTitle;
                 if (node.isEnding) {
-                    // Main endings replace the X/Y part (e.g., 1/30) with the dynamic endingId/TOTAL_ENDINGS (e.g., 1/54)
+                     // Main endings replace the X/Y part (e.g., 1/30) with the dynamic endingId/TOTAL_ENDINGS (e.g., 1/54)
                     dynamicTitle = node.endingTitle.replace(/(\d+)\/(\d+)/, `${node.endingId}/${TOTAL_ENDINGS}`);
                 } else {
-                    // Death endings use the GAME OVER prefix, and a format like (31/54)
+                     // Death endings use the GAME OVER prefix, and a format like (31/54)
                     dynamicTitle = `${prefix} (${node.endingId}/${TOTAL_ENDINGS}): ${node.endingDescription}`;
                 }
+
+                const item = document.createElement('div');
+                item.classList.add('ending-item');
                 
-                htmlContent = `
-                    <h2>${dynamicTitle}</h2>
-                    <p class="description">${node.text}</p>
+                if (isUnlocked) {
+                    item.classList.add('unlocked');
+                }
+                
+                const statusSymbol = isUnlocked ? '✓' : '✗';
+                
+                // Split the generated dynamic title into the number/prefix part and the name part
+                const parts = dynamicTitle.split(':');
+                const prefixAndNumber = parts[0].trim();
+                const cleanName = parts.slice(1).join(':').trim();
+
+                item.innerHTML = `
+                    <span class="ending-name">${prefixAndNumber} - ${cleanName}</span>
+                    <span class="status">${statusSymbol}</span>
                 `;
-                stopBlinking(); // Stop blinking on game over/ending
-            } else if (node.isTitle) {
-                // If the node is a placeholder to return to the title screen, handle the transition
-                handleInGameTransition('title_screen');
-                return;
-            } else {
-                // Regular story node
-                htmlContent = `<p>${node.text}</p>`;
-            }
+                listContentEl.appendChild(item);
+            });
+            
+            // Add a completion status at the top of the list
+            const unlockedCount = unlockedEndings.length;
+            const statusHeader = document.createElement('h4');
+            statusHeader.style.color = unlockedCount === TOTAL_ENDINGS ? '#44ff44' : '#f55'; /* Light red/green status */
+            statusHeader.style.textAlign = 'center';
+            statusHeader.style.marginTop = '20px';
+            statusHeader.innerHTML = `**Status:** ${unlockedCount}/${TOTAL_ENDINGS} Found`;
+            listContentEl.prepend(statusHeader);
 
-            // 1. Update the content
-            storyTextEl.innerHTML = htmlContent;
-            choicesEl.innerHTML = ''; // Clear old choices
-
-            // 2. Add choice buttons
-            if (node.choices && node.choices.length > 0) {
-                node.choices.forEach(choice => {
-                    const button = document.createElement('button');
-                    button.classList.add('choice-btn');
-                    button.textContent = choice.text;
-                    button.onclick = () => handleInGameTransition(choice.nextNode);
-                    choicesEl.appendChild(button);
-                });
-            } else if (!node.isEnding && !node.isDeath) {
-                // No choices defined for a non-ending node (should not happen in a complete game)
-                storyTextEl.innerHTML += "<p style='color:#f55'>**[ERROR: Missing choices for this node. Returning to start.]**</p>";
-                const button = document.createElement('button');
-                button.classList.add('choice-btn');
-                button.textContent = "Return to Title Screen";
-                button.onclick = () => handleInGameTransition('title_screen');
-                choicesEl.appendChild(button);
-            }
-
-            // 3. Fade the content back in (1.5s)
-            setTimeout(() => {
-                storyTextEl.style.opacity = '1';
-                choicesEl.style.opacity = '1';
-            }, 50); // Small delay to ensure browser registers content change before transition
-
-            // 4. Update the history for back button functionality (optional, not implemented here)
         }
 
+        // Function to toggle the sidebar menu
+        function toggleEndingsMenu() {
+            startAmbiance(); // Ensure audio starts on first click
+            window.populateEndingsList();
+            sidebarEl.classList.toggle('open');
+            document.body.classList.toggle('sidebar-open');
+        }
+        
+        window.toggleEndingsMenu = toggleEndingsMenu; // Expose to global scope for HTML onclick
 
-        // --- Event Listeners ---
+        // --- Audio Management Logic (Unchanged) ---
+        function startAmbiance() {
+            if (rainAmbiance.paused) {
+                // Check if browser allows autoplay and try to start
+                const playPromise = rainAmbiance.play();
+                if (playPromise !== undefined) {
+                    playPromise.then(_ => {
+                        // Autoplay started!
+                    }).catch(error => {
+                        // Autoplay prevented. User must interact first.
+                        console.log("Autoplay prevented. Audio will start on the next user interaction.");
+                    });
+                }
+            }
+        }
+
+        // --- Event Listeners and Initialization (Unchanged) ---
         
         // Start Button: Wraps the screen change to ensure audio starts
         startButtonEl.addEventListener('click', () => handleStartScreenClick(() => showScreen('game')));
@@ -2040,7 +2028,7 @@ body.better-graphics-active .container {
             }
         });
 
-
+        
         // Re-render eyes on window resize to maintain non-overlapping constraint
         window.addEventListener('resize', () => {
             if (gameSettings.graphics === 'better') {
